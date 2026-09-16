@@ -2,8 +2,9 @@ import { AppState, AccessStatus } from '../types';
 import { CARGOS_EXEMPLO_FEX, MODULOS_MINI_CURSO, gerarPlanoPersonalizado } from '../data/mockDefaults';
 import { calcularDiagnostico, SALARIO_PADRAO, MESES_RAMPA_PADRAO, PERCENTUAL_PERDA_PADRAO } from '../utils/calculations';
 
-const STORAGE_KEY = 'fex_educacao_plataforma_prod_v2';
+const STORAGE_KEY = 'fex_educacao_plataforma_prod_v3';
 const LEGACY_STORAGE_KEY = 'fex_educacao_plataforma_state_v1';
+const PREV_STORAGE_KEY = 'fex_educacao_plataforma_prod_v2';
 
 export const INITIAL_STATE: AppState = {
   accessStatus: 'visitor',
@@ -14,16 +15,7 @@ export const INITIAL_STATE: AppState = {
     segmentoOutro: '',
     porte: null
   },
-  cargos: [
-    {
-      id: 'c-init',
-      nome: '',
-      salarioMensal: SALARIO_PADRAO,
-      criticidade: 3,
-      dependencia: 3,
-      reposicao: 3
-    }
-  ],
+  cargos: [],
   mesesRampa: MESES_RAMPA_PADRAO,
   percentualPerda: PERCENTUAL_PERDA_PADRAO,
   lead: {
@@ -50,6 +42,7 @@ export function loadSavedState(): AppState {
     // Clear legacy test data from earlier simulator/demo versions
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem(LEGACY_STORAGE_KEY);
+      localStorage.removeItem(PREV_STORAGE_KEY);
       localStorage.removeItem('fex_dev_mode');
     }
 
@@ -61,6 +54,13 @@ export function loadSavedState(): AppState {
     if (parsed.devMode) {
       localStorage.removeItem(STORAGE_KEY);
       return INITIAL_STATE;
+    }
+
+    // Filter out any ghost/dummy cargos with empty names or 'c-init'
+    if (parsed.cargos && Array.isArray(parsed.cargos)) {
+      parsed.cargos = parsed.cargos.filter(
+        (c: any) => c && typeof c.nome === 'string' && c.nome.trim().length > 0 && c.id !== 'c-init'
+      );
     }
 
     return { ...INITIAL_STATE, ...parsed };

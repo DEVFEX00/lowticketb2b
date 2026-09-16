@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PerfilEmpresa, CargoCritico, SegmentoEmpresa, PorteEmpresa } from '../types';
 import { SALARIO_MIN, SALARIO_MAX, SALARIO_STEP, SALARIO_PADRAO, formatarMoeda } from '../utils/calculations';
 import { Plus, Trash2, ChevronRight, AlertCircle, ArrowLeft, Check } from 'lucide-react';
@@ -55,7 +55,14 @@ export const DiagnosticForm: React.FC<DiagnosticFormProps> = ({
     reposicao: 3
   });
 
-  const [formAberto, setFormAberto] = useState<boolean>(cargos.length === 0);
+  const [formAberto, setFormAberto] = useState<boolean>(true);
+
+  // If no cargos added yet, ensure the input form is open
+  useEffect(() => {
+    if (cargos.length === 0) {
+      setFormAberto(true);
+    }
+  }, [cargos.length]);
 
   // Profile validation
   const isPerfilValido = Boolean(
@@ -96,6 +103,28 @@ export const DiagnosticForm: React.FC<DiagnosticFormProps> = ({
       setFormAberto(true);
     }
   };
+
+  const handleCalcular = () => {
+    let listaAtual = [...cargos];
+
+    // If user filled in cargo details but didn't click "Salvar este cargo", auto-save it
+    if (cargoEmEdicao.nome.trim()) {
+      const novoCargo: CargoCritico = {
+        ...cargoEmEdicao,
+        id: 'cargo-' + Date.now(),
+        nome: cargoEmEdicao.nome.trim()
+      };
+      listaAtual = [...listaAtual, novoCargo];
+      onUpdateCargos(listaAtual);
+    }
+
+    if (listaAtual.length === 0) return;
+
+    trackEvent('risk_calculation_initiated', { total_cargos: listaAtual.length });
+    onCalculate();
+  };
+
+  const podeCalcular = cargos.length > 0 || Boolean(cargoEmEdicao.nome.trim());
 
   // STEP 1: PERFIL DA EMPRESA
   if (step === 'perfil') {
@@ -459,14 +488,11 @@ export const DiagnosticForm: React.FC<DiagnosticFormProps> = ({
       {/* Primary Calculate CTA */}
       <div className="pt-2">
         <button
-          disabled={cargos.length === 0}
-          onClick={() => {
-            trackEvent('risk_calculation_initiated', { total_cargos: cargos.length });
-            onCalculate();
-          }}
+          disabled={!podeCalcular}
+          onClick={handleCalcular}
           className={`w-full py-4 px-6 rounded-full font-extrabold text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
-            cargos.length > 0
-              ? 'bg-[#00D84F] hover:bg-[#25eb69] text-black shadow-lg shadow-[#00D84F]/20'
+            podeCalcular
+              ? 'bg-[#00D84F] hover:bg-[#25eb69] text-black shadow-lg shadow-[#00D84F]/20 active:scale-98'
               : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
           }`}
         >
