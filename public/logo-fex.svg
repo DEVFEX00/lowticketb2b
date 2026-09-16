@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 48" fill="none" role="img" aria-label="FEX Educação">
+  <!-- FEX Monogram with signature neon green accent in E -->
+  <g font-family="'Montserrat', -apple-system, sans-serif" font-weight="900">
+    <!-- Letter F -->
+    <path d="M12 8 H34 V15 H20 V22 H31 V29 H20 V40 H12 Z" fill="currentColor"/>
+    
+    <!-- Letter E with middle stroke in brand green #00D84F -->
+    <path d="M42 8 H64 V15 H50 V40 H64 V40 H42 Z" fill="currentColor"/>
+    <path d="M42 33 H64 V40 H42 Z" fill="currentColor"/>
+    <!-- Middle green accent bar of E -->
+    <rect x="42" y="21.5" width="20" height="7" rx="1.5" fill="#00D84F"/>
+    
+    <!-- Letter X -->
+    <path d="M72 8 H81 L89 21 L97 8 H106 L94 24 L107 40 H97 L89 27 L80 40 H71 L84 24 Z" fill="currentColor"/>
+  </g>
+  
+  <!-- Subtle vertical divider -->
+  <rect x="120" y="10" width="1.5" height="28" rx="0.75" fill="currentColor" opacity="0.3"/>
+  
+  <!-- Wordmark: EDUCAÇÃO -->
+  <text x="134" y="31" font-family="'Montserrat', -apple-system, sans-serif" font-size="14.5" font-weight="800" letter-spacing="4.5" fill="currentColor" opacity="0.95">EDUCAÇÃO</text>
+</svg>

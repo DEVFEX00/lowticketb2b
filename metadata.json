@@ -1,0 +1,8 @@
+{
+  "name": "Remix Plataforma FEX Educação - Diagnóstico \u0026 Sucessão",
+  "description": "Calculadora de Risco de Pessoa-Chave, Diagnóstico Financeiro, Plano de Sucessão de 90 Dias e Mini-Curso da Faculdade FEX Educação.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

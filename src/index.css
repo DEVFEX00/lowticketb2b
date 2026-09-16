@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+:root {
+  --fex-green: #00D84F;
+  --fex-green-vibrant: #32CD32;
+  --fex-black: #000000;
+  --fex-beige: #D1CDC4;
+  --fex-light-bg: #F4F4F4;
+  --fex-white: #FFFFFF;
+  font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+body {
+  font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: #000000;
+  color: #111111;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+::-webkit-scrollbar-thumb {
+  background: #00D84F;
+  border-radius: 4px;
+}
+
+/* Print styles for export */
+@media print {
+  body {
+    background: #FFFFFF !important;
+    color: #000000 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .page-break {
+    page-break-before: always;
+  }
+}
+@media screen {
+  .print-only {
+    display: none !important;
+  }
+}
