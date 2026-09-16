@@ -164,6 +164,7 @@ export default function App() {
         productText.includes('diagnostico') ||
         productText.includes('pessoa-chave') ||
         productText.includes('pessoa chave') ||
+        productText.includes('corporativo') ||
         productText.includes('67');
 
       const targetScreen = params.get('screen') || params.get('step');

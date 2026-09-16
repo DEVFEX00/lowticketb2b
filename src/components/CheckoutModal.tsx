@@ -19,7 +19,7 @@ interface CheckoutModalProps {
   };
 }
 
-export const CHECKOUT_URL_67 = 'https://checkout.fexeducacao.com/pay/diagnostico-de-custo-pessoa-chave-mini-curso';
+export const CHECKOUT_URL_67 = 'https://checkout.fexeducacao.com/pay/diagnostico-de-custo-pessoa-corporativo-mini-curso';
 export const CHECKOUT_URL_97 = 'https://checkout.fexeducacao.com/pay/plano-de-sucessao-completo-mini-curso';
 
 export const CheckoutModal: React.FC<CheckoutModalProps> = ({
