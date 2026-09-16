@@ -8,7 +8,6 @@ interface CheckoutModalProps {
   productType: 'diagnostic_67' | 'succession_97';
   isOpen: boolean;
   onClose: () => void;
-  onConfirmPaid?: (type: 'diagnostic_67' | 'succession_97') => void;
   perfil?: PerfilEmpresa;
   resultado?: DiagnosticoResultado | null;
   leadData?: {
@@ -20,19 +19,18 @@ interface CheckoutModalProps {
   };
 }
 
-export const CHECKOUT_URL_67 = 'https://checkout.fexeducacao.com/pay/diagnostico-de-custo-pessoa-corporativo-mini-curso';
+export const CHECKOUT_URL_67 = 'https://checkout.fexeducacao.com/pay/diagnostico-de-custo-pessoa-chave-mini-curso';
 export const CHECKOUT_URL_97 = 'https://checkout.fexeducacao.com/pay/plano-de-sucessao-completo-mini-curso';
 
 export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   productType,
   isOpen,
   onClose,
-  onConfirmPaid,
   perfil,
   resultado,
   leadData
 }) => {
-  const [clickedCheckout, setClickedCheckout] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   if (!isOpen) return null;
 
@@ -47,12 +45,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const checkoutParams = new URLSearchParams();
   if (leadData?.nome) checkoutParams.set('name', leadData.nome);
   if (leadData?.email) checkoutParams.set('email', leadData.email);
-  if (leadData?.whatsapp) checkoutParams.set('phone', leadData.whatsapp);
+  if (leadData?.whatsapp) {
+    const rawPhone = leadData.whatsapp.replace(/\D/g, '');
+    checkoutParams.set('phone', rawPhone || leadData.whatsapp);
+  }
   if (leadData?.empresa) checkoutParams.set('company', leadData.empresa);
 
-  // Return redirection configuration for checkout gateways (Guru, Kiwify, Ticto, Hotmart)
+  // Return redirection configuration for Digital Manager Guru
   if (typeof window !== 'undefined') {
-    const returnUrl = `${window.location.origin}${window.location.pathname}?status=approved&paid=${is67 ? '67' : '97'}`;
+    const returnUrl = `${window.location.origin}${window.location.pathname}?status=approved&paid=${is67 ? '67' : '97'}&sck=${is67 ? 'fex_diag67' : 'fex_plan97'}`;
     checkoutParams.set('return_url', returnUrl);
     checkoutParams.set('redirect_url', returnUrl);
     checkoutParams.set('sck', is67 ? 'fex_diag67' : 'fex_plan97');
@@ -60,8 +61,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   
   const fullCheckoutUrl = targetUrl + (checkoutParams.toString() ? `?${checkoutParams.toString()}` : '');
 
-  const handleGoToCheckout = () => {
-    setClickedCheckout(true);
+  const handleGoToCheckout = async () => {
+    setIsRedirecting(true);
 
     trackEvent(is67 ? 'checkout_67_click' : 'checkout_97_click', {
       product: title,
@@ -70,26 +71,31 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     });
 
     if (leadData && (leadData.nome || leadData.email)) {
-      sendLeadToN8n({
-        lead: {
-          nome: leadData.nome || '',
-          email: leadData.email || '',
-          whatsapp: leadData.whatsapp || '',
-          empresa: leadData.empresa || '',
-          cargo: leadData.cargo || '',
-          lgpdAceito: true
-        },
-        perfil,
-        resultado,
-        etapaOrigem: is67 ? 'modal_checkout_click_67' : 'modal_checkout_click_97',
-        extraData: {
-          produtoClicado: is67 ? 'diagnostico_67' : 'plano_sucessao_97',
-          valorClicado: is67 ? 67.0 : 97.0
-        }
-      }).catch(() => {});
+      try {
+        await sendLeadToN8n({
+          lead: {
+            nome: leadData.nome || '',
+            email: leadData.email || '',
+            whatsapp: leadData.whatsapp || '',
+            empresa: leadData.empresa || '',
+            cargo: leadData.cargo || '',
+            lgpdAceito: true
+          },
+          perfil,
+          resultado,
+          etapaOrigem: is67 ? 'modal_checkout_click_67' : 'modal_checkout_click_97',
+          extraData: {
+            produtoClicado: is67 ? 'diagnostico_67' : 'plano_sucessao_97',
+            valorClicado: is67 ? 67.0 : 97.0
+          }
+        });
+      } catch (err) {
+        console.warn('[FEX] Webhook lead sync handled:', err);
+      }
     }
 
-    window.open(fullCheckoutUrl, '_blank', 'noopener,noreferrer');
+    // Direct navigation in the same window to ensure consistent return from Guru
+    window.location.href = fullCheckoutUrl;
   };
 
   return (
@@ -141,33 +147,22 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         <div className="space-y-3">
           <button
             onClick={handleGoToCheckout}
-            className="w-full flex items-center justify-center gap-2 py-4 px-6 rounded-full bg-[#00D84F] hover:bg-[#25eb69] text-black font-extrabold text-sm sm:text-base uppercase tracking-wider transition-all transform active:scale-98 shadow-lg shadow-[#00D84F]/20 cursor-pointer"
+            disabled={isRedirecting}
+            className="w-full flex items-center justify-center gap-2 py-4 px-6 rounded-full bg-[#00D84F] hover:bg-[#25eb69] disabled:opacity-75 text-black font-extrabold text-sm sm:text-base uppercase tracking-wider transition-all transform active:scale-98 shadow-lg shadow-[#00D84F]/20 cursor-pointer"
           >
-            <span>Ir para o Checkout Seguro ({price})</span>
-            <ExternalLink className="w-4 h-4" />
+            {isRedirecting ? (
+              <span>Redirecionando para o Checkout Seguro...</span>
+            ) : (
+              <>
+                <span>Ir para o Checkout Seguro ({price})</span>
+                <ExternalLink className="w-4 h-4" />
+              </>
+            )}
           </button>
-
-          {clickedCheckout && (
-            <div className="mt-4 p-4 rounded-xl bg-neutral-900 border border-[#00D84F]/40 text-center animate-fadeIn space-y-3">
-              <div className="flex items-center justify-center gap-2 text-xs font-bold text-neutral-300">
-                <QrCode className="w-4 h-4 text-[#00D84F]" />
-                <span>Pagamento via PIX ou Cartão</span>
-              </div>
-              <p className="text-xs text-neutral-400 leading-relaxed">
-                A tela do checkout seguro foi aberta. Assim que concluir o pagamento, você será redirecionado automaticamente. Caso prefira continuar por aqui:
-              </p>
-              {onConfirmPaid && (
-                <button
-                  type="button"
-                  onClick={() => onConfirmPaid(productType)}
-                  className="w-full py-3 px-4 rounded-xl bg-[#00D84F]/15 hover:bg-[#00D84F]/25 text-[#00D84F] font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 border border-[#00D84F]/40 transition-all cursor-pointer"
-                >
-                  <CheckCircle2 className="w-4 h-4 text-[#00D84F]" />
-                  <span>Já realizei o pagamento • Liberar Acesso</span>
-                </button>
-              )}
-            </div>
-          )}
+          <div className="flex items-center justify-center gap-2 text-xs text-neutral-400 pt-1">
+            <QrCode className="w-3.5 h-3.5 text-[#00D84F]" />
+            <span>Pagamento 100% seguro via PIX ou Cartão no Guru</span>
+          </div>
         </div>
       </div>
     </div>

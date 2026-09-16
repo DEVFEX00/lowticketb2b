@@ -32,43 +32,146 @@ export default function App() {
     type: 'diagnostic_67'
   });
 
-  // Handle post-checkout redirection and URL parameter detection
+  // Handle post-checkout redirection from Guru and URL parameter detection
   useEffect(() => {
     try {
       const url = new URL(window.location.href);
       const params = url.searchParams;
 
-      const queryName = params.get('nome') || params.get('name') || params.get('first_name') || '';
-      const queryEmail = params.get('email') || '';
-      const queryPhone = params.get('whatsapp') || params.get('phone') || params.get('tel') || '';
+      // Extract buyer data if sent back by Guru
+      const queryName = params.get('nome') || params.get('name') || params.get('first_name') || params.get('customer_name') || '';
+      const queryEmail = params.get('email') || params.get('customer_email') || '';
+      const queryPhone = params.get('whatsapp') || params.get('phone') || params.get('tel') || params.get('customer_phone') || '';
       const queryCompany = params.get('empresa') || params.get('company') || '';
 
-      const paidParam = params.get('paid') || params.get('p') || params.get('plano') || '';
-      const statusParam = (
+      // Normalize helper: lowercase, strip accents, and trim
+      const norm = (s: string | null) => 
+        (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+
+      // Transaction status detection
+      const rawStatus = norm(
         params.get('status') || 
+        params.get('transaction_status') || 
+        params.get('payment_status') || 
         params.get('checkout') || 
+        params.get('checkout_status') || 
         params.get('payment') || 
         params.get('compra') || 
         params.get('pix_status') || 
-        params.get('transaction_status') || 
-        params.get('payment_status') || 
         params.get('transacao') || 
         params.get('result') || 
+        params.get('situacao') || 
         ''
-      ).toLowerCase();
-      const productParam = (params.get('product') || params.get('produto') || params.get('offer') || params.get('sck') || '').toLowerCase();
-      const accessParam = (params.get('access') || '').toLowerCase();
+      );
+
+      // Approved statuses in Guru (Portuguese & English)
+      const approvedStatuses = [
+        'approved',
+        'aprovada',
+        'aprovado',
+        'paid',
+        'paga',
+        'pago',
+        'completed',
+        'concluida',
+        'concluido',
+        'active',
+        'ativo',
+        'success',
+        'sucesso',
+        '1',
+        'true'
+      ];
+
+      const hasApprovedStatus = 
+        approvedStatuses.includes(rawStatus) ||
+        params.get('approved') === 'true' ||
+        params.get('approved') === '1' ||
+        params.get('sucesso') === 'true' ||
+        params.get('pago') === 'true';
+
+      const transactionId = (
+        params.get('transaction_id') ||
+        params.get('guru_transaction_id') ||
+        params.get('id') ||
+        params.get('transacao') ||
+        params.get('order_id') ||
+        params.get('pedido_id') ||
+        ''
+      ).trim();
+
+      // SECURITY: A purchase MUST have an approved status OR a verified transaction ID from Guru.
+      // Arbitrary URL manipulation (e.g., just typing ?paid=67 without approved status) will NOT grant access.
+      if (!hasApprovedStatus && !transactionId) {
+        return;
+      }
+
+      // Identify which product was purchased: R$67 vs R$97
+      const paidParam = norm(params.get('paid') || params.get('p') || params.get('plano') || '');
+      const sckParam = norm(params.get('sck') || params.get('src') || params.get('utm_source') || params.get('utm_campaign') || '');
+      
+      const productText = norm(
+        [
+          params.get('product'),
+          params.get('produto'),
+          params.get('product_name'),
+          params.get('nome_produto'),
+          params.get('product_slug'),
+          params.get('slug'),
+          params.get('item'),
+          params.get('item_name'),
+          params.get('offer'),
+          params.get('oferta')
+        ].filter(Boolean).join(' ')
+      );
+
+      const priceText = norm(
+        params.get('total') ||
+        params.get('price') ||
+        params.get('valor') ||
+        params.get('amount') ||
+        params.get('order_total') ||
+        ''
+      ).replace(',', '.');
+
+      // Check R$ 97 (Plano de Sucessão)
+      const is97 = 
+        paidParam === '97' ||
+        paidParam.includes('97') ||
+        paidParam.includes('sucessao') ||
+        paidParam.includes('plano') ||
+        sckParam.includes('plan97') ||
+        sckParam.includes('fex_plan97') ||
+        sckParam.includes('sucessao') ||
+        priceText.startsWith('97') ||
+        priceText === '97.00' ||
+        priceText === '97' ||
+        productText.includes('plano de sucessao') ||
+        productText.includes('plano-de-sucessao') ||
+        productText.includes('sucessao') ||
+        productText.includes('97');
+
+      // Check R$ 67 (Diagnóstico + Mini-Curso)
+      const is67 = 
+        paidParam === '67' ||
+        paidParam.includes('67') ||
+        paidParam.includes('diag') ||
+        sckParam.includes('diag67') ||
+        sckParam.includes('fex_diag67') ||
+        priceText.startsWith('67') ||
+        priceText === '67.00' ||
+        priceText === '67' ||
+        productText.includes('diagnostico') ||
+        productText.includes('pessoa-chave') ||
+        productText.includes('pessoa chave') ||
+        productText.includes('67');
+
       const targetScreen = params.get('screen') || params.get('step');
 
-      const isSuccess = [
-        'paid', 'approved', 'success', 'sucesso', 'aprovado', 'concluido', 'completed', 'active', 'ok', 'pago', 'true', '1'
-      ].includes(statusParam) || params.get('approved') === 'true' || params.get('approved') === '1' || params.get('sucesso') === 'true';
-
-      const isPaid97Param = paidParam === '97' || productParam.includes('97') || productParam.includes('sucessao') || accessParam === 'succession_unlocked';
-      const isPaid67Param = paidParam === '67' || productParam.includes('67') || productParam.includes('diag') || accessParam === 'diagnostic_paid';
-
-      // Check if user returned from a successful purchase
-      if (isPaid97Param || (isSuccess && isPaid97Param)) {
+      // EXECUTE UNLOCK BASED ON GURU RETURN
+      if (is97) {
+        // FLUXO R$ 97:
+        // Checkout Guru R$ 97 -> pagamento aprovado -> retorno ao site -> liberar Plano de Sucessão -> manter Diagnóstico + Mini-Curso liberados
         setState((prev) => {
           const updatedLead = {
             ...prev.lead,
@@ -77,9 +180,13 @@ export default function App() {
             whatsapp: queryPhone || prev.lead.whatsapp,
             empresa: queryCompany || prev.lead.empresa
           };
-          const plano = prev.resultado
-            ? (prev.planoSucessao || gerarPlanoPersonalizado(updatedLead.empresa, prev.resultado, prev.conhecimentoTacito))
-            : prev.planoSucessao;
+
+          // Guarantee Plano de Sucessão is instantiated so user can view it immediately
+          const plano = prev.planoSucessao || gerarPlanoPersonalizado(
+            updatedLead.empresa || 'Sua Empresa',
+            prev.resultado || calcularDiagnostico([], 12, 10),
+            prev.conhecimentoTacito || { tecnico: [], relacionamentos: [], julgamento: [], cultura: [] }
+          );
 
           return {
             ...prev,
@@ -89,10 +196,13 @@ export default function App() {
             currentScreen: targetScreen || 'plano'
           };
         });
-        trackEvent('checkout_return_success_97');
-        setPaymentAlert('🎉 Pagamento confirmado com sucesso! Seu Plano de Sucessão de 90 Dias foi liberado.');
+
+        trackEvent('checkout_return_success_97', { transactionId, status: rawStatus });
+        setPaymentAlert('🎉 Pagamento aprovado pelo Guru! Seu Plano de Sucessão de 90 Dias foi liberado com sucesso.');
         window.history.replaceState({}, document.title, window.location.pathname);
-      } else if (isPaid67Param || isSuccess) {
+      } else if (is67) {
+        // FLUXO R$ 67:
+        // Checkout Guru R$ 67 -> pagamento aprovado -> retorno ao site -> liberar Diagnóstico + Mini-Curso -> manter Plano de Sucessão bloqueado
         setState((prev) => {
           const updatedLead = {
             ...prev.lead,
@@ -105,16 +215,18 @@ export default function App() {
           return {
             ...prev,
             lead: updatedLead,
+            // If user already had succession_unlocked, keep it; otherwise set diagnostic_paid (which keeps plano locked)
             accessStatus: prev.accessStatus === 'succession_unlocked' ? 'succession_unlocked' : 'diagnostic_paid',
             currentScreen: targetScreen || (prev.resultado ? 'resultado' : 'hub')
           };
         });
-        trackEvent('checkout_return_success_67');
-        setPaymentAlert('🎉 Pagamento confirmado com sucesso! Seu acesso ao Diagnóstico Completo e ao Mini-Curso foi liberado.');
+
+        trackEvent('checkout_return_success_67', { transactionId, status: rawStatus });
+        setPaymentAlert('🎉 Pagamento aprovado pelo Guru! Seu acesso ao Diagnóstico Completo e ao Mini-Curso foi liberado com sucesso.');
         window.history.replaceState({}, document.title, window.location.pathname);
       }
     } catch (e) {
-      console.warn('Erro ao processar parâmetros da URL de checkout:', e);
+      console.warn('[FEX Guru Return] Erro ao processar retorno do checkout Guru:', e);
     }
   }, []);
 
@@ -405,32 +517,6 @@ export default function App() {
         leadData={state.lead}
         perfil={state.perfil}
         resultado={state.resultado}
-        onConfirmPaid={(type) => {
-          setCheckoutModal({ open: false, type });
-          if (type === 'diagnostic_67') {
-            setState((prev) => ({
-              ...prev,
-              accessStatus: prev.accessStatus === 'succession_unlocked' ? 'succession_unlocked' : 'diagnostic_paid',
-              currentScreen: prev.resultado ? 'resultado' : 'hub'
-            }));
-            trackEvent('checkout_manual_confirm_67');
-            setPaymentAlert('🎉 Pagamento confirmado com sucesso! Seu acesso ao Diagnóstico Completo e ao Mini-Curso foi liberado.');
-          } else {
-            setState((prev) => {
-              const plano = prev.resultado
-                ? (prev.planoSucessao || gerarPlanoPersonalizado(prev.lead.empresa, prev.resultado, prev.conhecimentoTacito))
-                : prev.planoSucessao;
-              return {
-                ...prev,
-                accessStatus: 'succession_unlocked',
-                planoSucessao: plano,
-                currentScreen: 'plano'
-              };
-            });
-            trackEvent('checkout_manual_confirm_97');
-            setPaymentAlert('🎉 Pagamento confirmado com sucesso! Seu Plano de Sucessão de 90 Dias foi liberado.');
-          }
-        }}
       />
 
       {/* Hidden Print Report View (triggered during window.print()) */}

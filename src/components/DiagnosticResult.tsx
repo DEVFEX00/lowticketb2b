@@ -90,10 +90,13 @@ export const DiagnosticResult: React.FC<DiagnosticResultProps> = ({
     const checkoutParams = new URLSearchParams();
     if (lead.nome) checkoutParams.set('name', lead.nome);
     if (lead.email) checkoutParams.set('email', lead.email);
-    if (lead.whatsapp) checkoutParams.set('phone', lead.whatsapp);
+    if (lead.whatsapp) {
+      const rawPhone = lead.whatsapp.replace(/\D/g, '');
+      checkoutParams.set('phone', rawPhone || lead.whatsapp);
+    }
     if (lead.empresa) checkoutParams.set('company', lead.empresa);
     if (typeof window !== 'undefined') {
-      const returnUrl = `${window.location.origin}${window.location.pathname}?status=approved&paid=67`;
+      const returnUrl = `${window.location.origin}${window.location.pathname}?status=approved&paid=67&sck=fex_diag67`;
       checkoutParams.set('return_url', returnUrl);
       checkoutParams.set('redirect_url', returnUrl);
       checkoutParams.set('sck', 'fex_diag67');
@@ -112,9 +115,8 @@ export const DiagnosticResult: React.FC<DiagnosticResultProps> = ({
       console.warn('[FEX] Webhook error handled:', err);
     } finally {
       setIsSendingWebhook(false);
-      // Immediately launch official checkout in new tab & open backup modal helper
-      window.open(fullCheckoutUrl, '_blank', 'noopener,noreferrer');
-      onOpenCheckout67();
+      // Direct navigation in the same window to ensure consistent return from Guru
+      window.location.href = fullCheckoutUrl;
     }
   };
 
