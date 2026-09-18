@@ -6,6 +6,7 @@ import { ShieldCheck, Sparkles, LayoutDashboard } from 'lucide-react';
 interface BrandHeaderProps {
   currentScreen: string;
   accessStatus: AccessStatus;
+  hasResult?: boolean;
   devMode?: boolean;
   onNavigate: (screen: string) => void;
   onSelectDemoState?: (status: AccessStatus) => void;
@@ -16,6 +17,7 @@ interface BrandHeaderProps {
 export const BrandHeader: React.FC<BrandHeaderProps> = ({
   currentScreen,
   accessStatus,
+  hasResult = false,
   onNavigate
 }) => {
   return (
@@ -67,7 +69,7 @@ export const BrandHeader: React.FC<BrandHeaderProps> = ({
             </button>
 
             <button
-              onClick={() => onNavigate('perfil')}
+              onClick={() => onNavigate(hasResult ? 'resultado' : 'perfil')}
               className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all ${
                 ['perfil', 'cargos', 'resultado'].includes(currentScreen)
                   ? 'bg-white/20 text-white'

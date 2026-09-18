@@ -367,6 +367,7 @@ export default function App() {
       <BrandHeader
         currentScreen={state.currentScreen}
         accessStatus={state.accessStatus}
+        hasResult={Boolean(state.resultado)}
         onNavigate={handleNavigate}
       />
 
@@ -425,19 +426,34 @@ export default function App() {
           <CalculatingSuspense onFinish={handleFinishCalculation} />
         )}
 
-        {state.currentScreen === 'resultado' && state.resultado && (
-          <DiagnosticResult
-            resultado={state.resultado}
-            lead={state.lead}
-            perfil={state.perfil}
-            accessStatus={state.accessStatus}
-            onUpdateLead={handleUpdateLead}
-            onUpdateParams={handleUpdateParams}
-            onProceedToRaioX={() => handleNavigate('raiox')}
-            onPrint={handlePrint}
-            onOpenCheckout67={openCheckout67}
-            onNavigateToHub={() => handleNavigate('hub')}
-          />
+        {state.currentScreen === 'resultado' && (
+          state.resultado ? (
+            <DiagnosticResult
+              resultado={state.resultado}
+              lead={state.lead}
+              perfil={state.perfil}
+              accessStatus={state.accessStatus}
+              onUpdateLead={handleUpdateLead}
+              onUpdateParams={handleUpdateParams}
+              onProceedToRaioX={() => handleNavigate('raiox')}
+              onPrint={handlePrint}
+              onOpenCheckout67={openCheckout67}
+              onNavigateToHub={() => handleNavigate('hub')}
+            />
+          ) : (
+            <div className="max-w-md mx-auto text-center py-12 px-6 bg-white text-neutral-900 rounded-3xl p-8 border border-neutral-200 shadow-xl animate-fadeIn">
+              <h2 className="text-xl font-black mb-2 text-neutral-900">Calculadora de Risco</h2>
+              <p className="text-xs text-neutral-600 mb-6 leading-relaxed">
+                Você ainda não realizou o cálculo. Preencha os cargos críticos para visualizar seu resultado gratuitamente.
+              </p>
+              <button
+                onClick={() => handleNavigate('cargos')}
+                className="px-6 py-3.5 rounded-full bg-[#00D84F] hover:bg-[#25eb69] text-black font-extrabold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-lg shadow-[#00D84F]/20"
+              >
+                Fazer Calculadora de Risco
+              </button>
+            </div>
+          )
         )}
 
         {state.currentScreen === 'raiox' && (

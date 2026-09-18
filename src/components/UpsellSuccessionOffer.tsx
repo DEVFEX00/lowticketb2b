@@ -161,33 +161,40 @@ export const UpsellSuccessionOffer: React.FC<UpsellSuccessionOfferProps> = ({
         <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="max-w-md">
             <span className="text-[11px] font-black uppercase tracking-wider text-[#00D84F] block mb-1">
-              Desbloqueio Imediato
+              Módulo Order Bump • Transição Estratégica
             </span>
             <h3 className="text-xl sm:text-2xl font-black text-white leading-tight">
-              Quero Construir Meu Plano de Sucessão
+              Plano de Sucessão de 90 Dias
             </h3>
             <p className="text-xs text-white/70 mt-2 leading-relaxed">
-              Receba o plano de 90 dias estruturado em 5 fases, personalizado com as respostas da {lead.empresa || 'sua empresa'} e com as ações prioritárias para {cargoPrincipal}.
+              Disponibilizado como order bump no checkout oficial da FEX. Receba o plano estruturado em 5 fases com ações prioritárias para a continuidade da {lead.empresa || 'sua empresa'}.
             </p>
           </div>
 
           <div className="text-center sm:text-right shrink-0">
-            <span className="text-xs text-white/50 block line-through">De R$ 297</span>
-            <span className="text-3xl sm:text-4xl font-black text-[#00D84F]">R$ 97,00</span>
-            <span className="text-[10px] text-white/60 block mt-0.5">Pagamento único • Sem mensalidades</span>
+            <span className="text-xs text-white/50 block">Incluso no Order Bump</span>
+            <span className="text-2xl sm:text-3xl font-black text-[#00D84F]">R$ 97,00</span>
+            <span className="text-[10px] text-white/60 block mt-0.5">Ativação no checkout oficial</span>
           </div>
         </div>
 
-        <div className="mt-6 pt-6 border-t border-white/15 flex flex-col items-center">
+        <div className="mt-6 pt-6 border-t border-white/15 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <button
+            onClick={onBack}
+            className="w-full sm:w-auto py-3 px-6 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer text-center"
+          >
+            Voltar para Área do Cliente
+          </button>
+
           <button
             onClick={() => {
               trackEvent('upsell_checkout_initiated', { lead, custoTotal });
               onOpenCheckout97();
             }}
-            className="w-full py-4 px-6 rounded-full bg-[#00D84F] hover:bg-[#25eb69] text-black font-extrabold text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl shadow-[#00D84F]/25 transition-all transform active:scale-98 cursor-pointer"
+            className="w-full sm:w-auto py-3.5 px-6 rounded-full bg-[#00D84F] hover:bg-[#25eb69] text-black font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-[#00D84F]/25 transition-all transform active:scale-98 cursor-pointer"
           >
-            <span>QUERO CONSTRUIR MEU PLANO DE SUCESSÃO (R$ 97)</span>
-            <ArrowRight className="w-4 h-4" />
+            <span>Conferir no Checkout Oficial</span>
+            <ExternalLink className="w-4 h-4 text-black" />
           </button>
         </div>
       </div>

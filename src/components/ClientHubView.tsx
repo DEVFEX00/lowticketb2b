@@ -9,15 +9,17 @@ import {
   PlayCircle, 
   FileSpreadsheet, 
   ShieldAlert, 
-  Sparkles,
-  User,
-  GraduationCap,
-  ExternalLink,
-  ChevronRight,
-  ShieldCheck
+  Sparkles, 
+  User, 
+  GraduationCap, 
+  ExternalLink, 
+  ChevronRight, 
+  ShieldCheck,
+  Calculator,
+  RotateCcw
 } from 'lucide-react';
 import { trackEvent } from '../services/analytics';
-import { CHECKOUT_URL_97 } from './CheckoutModal';
+import { DIAGNOSTICO_CHECKOUT_URL } from '../config/checkout';
 
 interface ClientHubViewProps {
   accessStatus: AccessStatus;
@@ -39,17 +41,21 @@ export const ClientHubView: React.FC<ClientHubViewProps> = ({
   onOpenCheckout97
 }) => {
   // Access rules:
-  // R$67 or R$97 both have full access to Diagnostic and Mini-Course
-  // Succession Plan is unlocked ONLY for confirmed R$97 payment
+  // R$67 (diagnostic_paid) has full access to Diagnostic and Mini-Course
+  // Succession Plan is unlocked ONLY when confirmed via order bump (succession_unlocked or succession_paid)
   const isPaid67 = ['diagnostic_paid', 'succession_unlocked', 'succession_paid'].includes(accessStatus);
   const isPaid97 = ['succession_unlocked', 'succession_paid'].includes(accessStatus);
-  const isDiagCompleted = Boolean(resultado) && isPaid67;
+  const hasResult = Boolean(resultado);
 
   const saudacaoNome = lead.nome ? lead.nome.split(' ')[0] : '';
 
-  const handleOpenCheckout97 = () => {
-    trackEvent('hub_upsell_97_click');
-    onOpenCheckout97();
+  const handleIrParaOfertaOuCheckout = () => {
+    trackEvent('hub_unlock_cta_click');
+    if (hasResult) {
+      onNavigate('resultado');
+    } else {
+      window.location.href = DIAGNOSTICO_CHECKOUT_URL;
+    }
   };
 
   return (
@@ -58,24 +64,27 @@ export const ClientHubView: React.FC<ClientHubViewProps> = ({
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-neutral-200/80 shadow-sm mb-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 pb-6 border-b border-neutral-100">
           <div>
-            <div className="mb-3">
-              <FexLogo variant="light" size="md" />
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[11px] font-black uppercase tracking-wider text-[#00D84F] bg-black px-3 py-0.5 rounded-full inline-block">
+                Área do Cliente FEX
+              </span>
+              <span className="text-xs font-semibold text-neutral-500">
+                Faculdade FEX Educação
+              </span>
             </div>
-            
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-neutral-900 mt-1">
-              {saudacaoNome ? `Olá, ${saudacaoNome}! Seja bem-vindo à sua Área do Cliente.` : 'Olá! Seja bem-vindo à sua Área do Cliente.'}
+            <h1 className="text-2xl sm:text-3xl font-black text-neutral-900 tracking-tight">
+              {saudacaoNome ? `Olá, ${saudacaoNome}` : 'Painel de Governança & Sucessão'}
             </h1>
-            <p className="text-sm sm:text-base text-neutral-600 mt-2 max-w-2xl leading-relaxed">
-              Acesse seus conteúdos, acompanhe seu diagnóstico e continue sua jornada de desenvolvimento.
+            <p className="text-xs sm:text-sm text-neutral-600 mt-1 max-w-xl leading-relaxed">
+              Acompanhe seu diagnóstico de risco de pessoas-chave, capacitação executiva e o plano de transição de 90 dias.
             </p>
           </div>
 
-          {/* User badge if lead has data */}
           {lead.nome && (
-            <div className="self-start md:self-auto bg-neutral-50 border border-neutral-200/90 rounded-2xl p-4 min-w-[240px]">
-              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-neutral-500 mb-1">
+            <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-4 min-w-[240px]">
+              <div className="flex items-center gap-2 text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1">
                 <User className="w-3.5 h-3.5 text-[#00D84F]" />
-                <span>Perfil Corporativo</span>
+                <span>Gestor Responsável</span>
               </div>
               <p className="text-sm font-bold text-neutral-900 truncate">{lead.nome}</p>
               <p className="text-xs text-neutral-600 truncate">{lead.cargo} {lead.empresa ? `• ${lead.empresa}` : ''}</p>
@@ -83,73 +92,82 @@ export const ClientHubView: React.FC<ClientHubViewProps> = ({
           )}
         </div>
 
-        {/* Summary Journey Strip */}
+        {/* Status Journey Strip */}
         <div className="pt-6">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-black uppercase tracking-wider text-neutral-400">
-              Sua jornada na FEX Educação
+              Status das Soluções
             </span>
             <span className="text-xs font-semibold text-neutral-500">
-              {isPaid97 ? '3 de 3 soluções ativas' : isPaid67 ? '2 de 3 soluções ativas' : '0 de 3 soluções ativas'}
+              {isPaid97 ? '3 de 3 soluções ativas' : isPaid67 ? '2 de 3 soluções ativas' : 'Calculadora Gratuita Ativa'}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {/* Step 1: Diagnóstico */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            {/* 1. Calculadora */}
+            <div className="flex items-center justify-between p-3 rounded-xl border bg-neutral-50 border-neutral-200">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-2 h-2 rounded-full bg-[#00D84F]"></div>
+                <span className="text-xs font-bold text-neutral-900 truncate">Calculadora</span>
+              </div>
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full whitespace-nowrap">
+                {hasResult ? '✓ Calculado' : '✓ Gratuita'}
+              </span>
+            </div>
+
+            {/* 2. Diagnóstico */}
             <div className={`flex items-center justify-between p-3 rounded-xl border ${
-              isPaid67 ? 'bg-neutral-50 border-neutral-200/70' : 'bg-neutral-100/80 border-neutral-200'
+              isPaid67 ? 'bg-neutral-50 border-neutral-200' : 'bg-neutral-100/80 border-neutral-200'
             }`}>
-              <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
                 <div className={`w-2 h-2 rounded-full ${isPaid67 ? 'bg-[#00D84F]' : 'bg-neutral-400'}`}></div>
                 <span className="text-xs font-bold text-neutral-900 truncate">Diagnóstico</span>
               </div>
               {isPaid67 ? (
-                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full whitespace-nowrap">
-                  {isDiagCompleted ? '✓ Concluído' : '✓ Liberado'}
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full whitespace-nowrap">
+                  ✓ Liberado
                 </span>
               ) : (
-                <span className="text-[11px] font-bold text-neutral-700 bg-neutral-200/80 px-2 py-0.5 rounded-full whitespace-nowrap">
+                <span className="text-[10px] font-bold text-neutral-700 bg-neutral-200 px-2 py-0.5 rounded-full whitespace-nowrap">
                   🔒 R$ 67
                 </span>
               )}
             </div>
 
-            {/* Step 2: Mini-Curso */}
+            {/* 3. Mini-Curso */}
             <div className={`flex items-center justify-between p-3 rounded-xl border ${
-              isPaid67 ? 'bg-neutral-50 border-neutral-200/70' : 'bg-neutral-100/80 border-neutral-200'
+              isPaid67 ? 'bg-neutral-50 border-neutral-200' : 'bg-neutral-100/80 border-neutral-200'
             }`}>
-              <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
                 <div className={`w-2 h-2 rounded-full ${isPaid67 ? 'bg-[#00D84F]' : 'bg-neutral-400'}`}></div>
                 <span className="text-xs font-bold text-neutral-900 truncate">Mini-Curso</span>
               </div>
               {isPaid67 ? (
-                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full whitespace-nowrap">
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full whitespace-nowrap">
                   ✓ Liberado
                 </span>
               ) : (
-                <span className="text-[11px] font-bold text-neutral-700 bg-neutral-200/80 px-2 py-0.5 rounded-full whitespace-nowrap">
-                  🔒 Bloqueado
+                <span className="text-[10px] font-bold text-neutral-700 bg-neutral-200 px-2 py-0.5 rounded-full whitespace-nowrap">
+                  🔒 R$ 67
                 </span>
               )}
             </div>
 
-            {/* Step 3: Plano de Sucessão */}
+            {/* 4. Plano de Sucessão */}
             <div className={`flex items-center justify-between p-3 rounded-xl border ${
-              isPaid97 
-                ? 'bg-neutral-50 border-neutral-200/70' 
-                : 'bg-amber-50/50 border-amber-200/60'
+              isPaid97 ? 'bg-neutral-50 border-neutral-200' : 'bg-amber-50/50 border-amber-200/60'
             }`}>
-              <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
                 <div className={`w-2 h-2 rounded-full ${isPaid97 ? 'bg-[#00D84F]' : 'bg-amber-400'}`}></div>
-                <span className="text-xs font-bold text-neutral-900 truncate">Plano de Sucessão</span>
+                <span className="text-xs font-bold text-neutral-900 truncate">Plano 90 Dias</span>
               </div>
               {isPaid97 ? (
-                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full whitespace-nowrap">
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full whitespace-nowrap">
                   ✓ Liberado
                 </span>
               ) : (
-                <span className="text-[11px] font-bold text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-full whitespace-nowrap">
-                  🔒 R$ 97
+                <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full whitespace-nowrap">
+                  🔒 Order Bump
                 </span>
               )}
             </div>
@@ -157,9 +175,91 @@ export const ClientHubView: React.FC<ClientHubViewProps> = ({
         </div>
       </div>
 
-      {/* THREE MAIN PRODUCT CARDS */}
+      {/* FOUR CORE SECTIONS / CARDS */}
       <div className="space-y-6 mb-10">
-        {/* CARD 01 — DIAGNÓSTICO */}
+        
+        {/* 1. CALCULADORA DE RISCO (DISPONÍVEL SEMPRE) */}
+        <div className="rounded-3xl p-6 sm:p-8 border bg-white border-neutral-200 shadow-sm hover:border-neutral-300 transition-all">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+            <div className="flex items-start gap-4 sm:gap-5">
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-sm bg-neutral-900 text-[#00D84F]">
+                <Calculator className="w-7 h-7" />
+              </div>
+
+              <div>
+                <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-3 py-0.5 rounded-full">
+                    ✓ Acesso Gratuito
+                  </span>
+                  {hasResult && (
+                    <span className="text-[11px] font-bold text-neutral-600 bg-neutral-100 px-2.5 py-0.5 rounded-full">
+                      Cálculo Concluído
+                    </span>
+                  )}
+                </div>
+
+                <h2 className="text-xl sm:text-2xl font-black text-neutral-900 tracking-tight">
+                  Calculadora de Risco de Ruptura
+                </h2>
+
+                <p className="text-sm text-neutral-600 mt-2 max-w-2xl leading-relaxed">
+                  Calcule gratuitamente o impacto financeiro de substituição e interrupção operacional através do cruzamento FMEA com os salários e índices dos cargos-chave da sua empresa.
+                </p>
+
+                {hasResult && (
+                  <div className="mt-3 p-3 rounded-xl bg-neutral-50 border border-neutral-200/80 inline-flex flex-wrap items-center gap-3 text-xs">
+                    <span className="text-neutral-500">Risco financeiro calculado:</span>
+                    <span className="font-extrabold text-neutral-900 text-sm">
+                      {formatarMoeda(resultado!.custoTotal)}
+                    </span>
+                    <span className="text-neutral-300">•</span>
+                    <span className="text-neutral-600">
+                      {resultado!.cargosCalculados.length} cargo(s) avaliado(s)
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="lg:shrink-0 w-full lg:w-auto pt-2 lg:pt-0">
+              {hasResult ? (
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button
+                    onClick={() => {
+                      trackEvent('hub_view_result_click');
+                      onNavigate('resultado');
+                    }}
+                    className="px-7 py-3.5 rounded-full bg-black hover:bg-neutral-800 text-white font-extrabold text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:shadow active:scale-98"
+                  >
+                    <span>Ver Resultado da Calculadora</span>
+                    <ChevronRight className="w-4 h-4 text-[#00D84F]" />
+                  </button>
+                  <button
+                    onClick={() => onNavigate('cargos')}
+                    className="px-4 py-3.5 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    title="Editar cargos ou recalcular"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Recalcular</span>
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    trackEvent('hub_start_calculator_click');
+                    onNavigate('cargos');
+                  }}
+                  className="w-full lg:w-auto px-7 py-3.5 rounded-full bg-[#00D84F] hover:bg-[#25eb69] text-black font-extrabold text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#00D84F]/20 active:scale-98"
+                >
+                  <span>Calcular Risco Agora (Gratuito)</span>
+                  <ArrowRight className="w-4 h-4 text-black" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 2. DIAGNÓSTICO COMPLETO */}
         <div className={`rounded-3xl p-6 sm:p-8 border transition-all shadow-sm ${
           isPaid67 ? 'bg-white border-neutral-200 hover:border-neutral-300' : 'bg-white border-neutral-300/80'
         }`}>
@@ -175,7 +275,7 @@ export const ClientHubView: React.FC<ClientHubViewProps> = ({
                 <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
                   {isPaid67 ? (
                     <span className="text-[11px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-3 py-0.5 rounded-full">
-                      ✓ Acesso liberado
+                      ✓ Acesso Liberado
                     </span>
                   ) : (
                     <span className="text-[11px] font-black uppercase tracking-wider text-neutral-800 bg-neutral-200 px-3 py-0.5 rounded-full flex items-center gap-1">
@@ -183,35 +283,17 @@ export const ClientHubView: React.FC<ClientHubViewProps> = ({
                       <span>Bloqueado • R$ 67,00</span>
                     </span>
                   )}
-                  {isDiagCompleted && (
-                    <span className="text-[11px] font-bold text-neutral-600 bg-neutral-100 px-2.5 py-0.5 rounded-full">
-                      Cálculo pronto
-                    </span>
-                  )}
                 </div>
 
                 <h2 className="text-xl sm:text-2xl font-black text-neutral-900 tracking-tight">
-                  Diagnóstico de Custo da Pessoa-Chave
+                  Diagnóstico Completo de Custo da Pessoa-Chave
                 </h2>
 
                 <p className="text-sm text-neutral-600 mt-2 max-w-2xl leading-relaxed">
                   {isPaid67
-                    ? 'Identifique os riscos, custos e impactos da dependência de pessoas-chave na sua organização.'
-                    : 'Mapeie o impacto financeiro, custos de substituição e vulnerabilidade tácita dos seus cargos mais críticos. Libere a memória de cálculo e exportação por R$ 67,00.'}
+                    ? 'Relatório executivo estruturado para diretoria, exportação em formato oficial, raio-x de conhecimento tácito e detalhamento FMEA dos cargos críticos.'
+                    : 'Relatório executivo estruturado para diretoria e conselho, com inventário de conhecimentos tácitos e exportação oficial. Liberado na aquisição de R$ 67,00.'}
                 </p>
-
-                {resultado && isPaid67 && (
-                  <div className="mt-3 p-3 rounded-xl bg-neutral-50 border border-neutral-200/80 inline-flex flex-wrap items-center gap-3 text-xs">
-                    <span className="text-neutral-500">Risco identificado:</span>
-                    <span className="font-extrabold text-neutral-900 text-sm">
-                      {formatarMoeda(resultado.custoTotal)}
-                    </span>
-                    <span className="text-neutral-300">•</span>
-                    <span className="text-neutral-600">
-                      {resultado.cargosCalculados.length} cargo(s) mapeado(s)
-                    </span>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -220,7 +302,7 @@ export const ClientHubView: React.FC<ClientHubViewProps> = ({
                 <button
                   onClick={() => {
                     trackEvent('hub_access_diagnostic_click');
-                    if (resultado) {
+                    if (hasResult) {
                       onNavigate('resultado');
                     } else {
                       onNavigate('cargos');
@@ -228,22 +310,15 @@ export const ClientHubView: React.FC<ClientHubViewProps> = ({
                   }}
                   className="w-full lg:w-auto px-7 py-3.5 rounded-full bg-black hover:bg-neutral-800 text-white font-extrabold text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:shadow active:scale-98"
                 >
-                  <span>Acessar diagnóstico</span>
+                  <span>Acessar Diagnóstico Completo</span>
                   <ChevronRight className="w-4 h-4 text-[#00D84F]" />
                 </button>
               ) : (
                 <button
-                  onClick={() => {
-                    trackEvent('hub_unlock_diagnostic_click');
-                    if (resultado) {
-                      onNavigate('resultado');
-                    } else {
-                      onNavigate('cargos');
-                    }
-                  }}
-                  className="w-full lg:w-auto px-7 py-3.5 rounded-full bg-[#00D84F] hover:bg-[#25eb69] text-black font-extrabold text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#00D84F]/20 active:scale-98"
+                  onClick={handleIrParaOfertaOuCheckout}
+                  className="w-full lg:w-auto px-7 py-3.5 rounded-full bg-[#00D84F] hover:bg-[#25eb69] text-black font-black text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#00D84F]/20 active:scale-98"
                 >
-                  <span>{resultado ? 'Desbloquear por R$ 67' : 'Iniciar Diagnóstico'}</span>
+                  <span>Adquirir por R$ 67</span>
                   <ArrowRight className="w-4 h-4 text-black" />
                 </button>
               )}
@@ -251,7 +326,7 @@ export const ClientHubView: React.FC<ClientHubViewProps> = ({
           </div>
         </div>
 
-        {/* CARD 02 — MINI-CURSO */}
+        {/* 3. MINI-CURSO: GESTÃO DE PESSOAS-CHAVE */}
         <div className={`rounded-3xl p-6 sm:p-8 border transition-all shadow-sm ${
           isPaid67 ? 'bg-white border-neutral-200 hover:border-neutral-300' : 'bg-neutral-900 text-white border-neutral-800'
         }`}>
@@ -267,7 +342,7 @@ export const ClientHubView: React.FC<ClientHubViewProps> = ({
                 <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
                   {isPaid67 ? (
                     <span className="text-[11px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-3 py-0.5 rounded-full">
-                      ✓ Acesso liberado
+                      ✓ Acesso Liberado
                     </span>
                   ) : (
                     <span className="text-[11px] font-black uppercase tracking-wider text-neutral-300 bg-white/10 border border-white/10 px-3 py-0.5 rounded-full flex items-center gap-1">
@@ -278,7 +353,7 @@ export const ClientHubView: React.FC<ClientHubViewProps> = ({
                   <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
                     isPaid67 ? 'text-neutral-600 bg-neutral-100' : 'text-neutral-400 bg-white/5'
                   }`}>
-                    4 Aulas Exclusivas
+                    4 Vídeo-Aulas FEX
                   </span>
                 </div>
 
@@ -288,8 +363,8 @@ export const ClientHubView: React.FC<ClientHubViewProps> = ({
 
                 <p className={`text-sm mt-2 max-w-2xl leading-relaxed ${isPaid67 ? 'text-neutral-600' : 'text-neutral-300'}`}>
                   {isPaid67
-                    ? 'Aprenda conceitos e ferramentas para fortalecer a gestão de pessoas-chave e preparar sua organização para o futuro.'
-                    : 'Mini-curso prático em 4 vídeo-aulas ministrado pelos fundadores da FEX Educação. Incluso automaticamente na aquisição do Diagnóstico de R$ 67,00.'}
+                    ? 'Aprenda na prática os métodos e ferramentas para fortalecer a gestão de pessoas-chave e preparar sua liderança para o futuro.'
+                    : 'Mini-curso prático em 4 vídeo-aulas ministrado pelos fundadores da Faculdade FEX Educação. Incluso automaticamente na aquisição do Diagnóstico por R$ 67,00.'}
                 </p>
 
                 <div className={`mt-3 flex flex-wrap items-center gap-2 text-xs ${isPaid67 ? 'text-neutral-500' : 'text-neutral-400'}`}>
@@ -311,19 +386,12 @@ export const ClientHubView: React.FC<ClientHubViewProps> = ({
                   }}
                   className="w-full lg:w-auto px-7 py-3.5 rounded-full bg-[#00D84F] hover:bg-[#25eb69] text-black font-extrabold text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-[#00D84F]/20 active:scale-98"
                 >
-                  <span>Acessar minicurso</span>
+                  <span>Acessar Mini-Curso</span>
                   <ChevronRight className="w-4 h-4 text-black" />
                 </button>
               ) : (
                 <button
-                  onClick={() => {
-                    trackEvent('hub_unlock_minicurso_click');
-                    if (resultado) {
-                      onNavigate('resultado');
-                    } else {
-                      onOpenCheckout67();
-                    }
-                  }}
+                  onClick={handleIrParaOfertaOuCheckout}
                   className="w-full lg:w-auto px-7 py-3.5 rounded-full bg-[#00D84F] hover:bg-[#25eb69] text-black font-black text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#00D84F]/20 active:scale-98"
                 >
                   <span>Liberar no Diagnóstico (R$ 67)</span>
@@ -334,7 +402,7 @@ export const ClientHubView: React.FC<ClientHubViewProps> = ({
           </div>
         </div>
 
-        {/* CARD 03 — PLANO DE SUCESSÃO */}
+        {/* 4. PLANO DE SUCESSÃO (ORDER BUMP EXTERNO) */}
         <div className={`rounded-3xl p-6 sm:p-8 border transition-all shadow-sm ${
           isPaid97 
             ? 'bg-white border-neutral-200 hover:border-neutral-300' 
@@ -352,28 +420,30 @@ export const ClientHubView: React.FC<ClientHubViewProps> = ({
                 <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
                   {isPaid97 ? (
                     <span className="text-[11px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-3 py-0.5 rounded-full">
-                      ✓ Acesso liberado
+                      ✓ Acesso Liberado
                     </span>
                   ) : (
                     <span className="text-[11px] font-black uppercase tracking-wider text-amber-300 bg-amber-500/20 border border-amber-500/30 px-3 py-0.5 rounded-full flex items-center gap-1">
                       <Lock className="w-3 h-3" />
-                      <span>Acesso exclusivo</span>
+                      <span>Bloqueado • Order Bump</span>
                     </span>
                   )}
                 </div>
 
                 <h2 className={`text-xl sm:text-2xl font-black tracking-tight ${isPaid97 ? 'text-neutral-900' : 'text-white'}`}>
-                  Plano de Sucessão
+                  Plano de Sucessão de 90 Dias
                 </h2>
 
                 <p className={`text-sm mt-2 max-w-2xl leading-relaxed ${isPaid97 ? 'text-neutral-600' : 'text-neutral-300'}`}>
-                  Transforme o diagnóstico em um plano prático para preparar sucessores e reduzir riscos na sua organização.
+                  {isPaid97
+                    ? 'Seu plano prático e cronológico de 5 fases para mapear, preparar sucessores, documentar processos críticos e blindar a continuidade da empresa.'
+                    : 'Transforme o diagnóstico em um plano prático de ação de 90 dias com metodologia FEX. Oferecido como order bump no checkout oficial.'}
                 </p>
 
                 {!isPaid97 && (
-                  <p className="text-xs text-amber-400 font-bold mt-3 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Desbloqueie seu Plano de Sucessão completo.</span>
+                  <p className="text-xs text-neutral-400 mt-3 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Liberado automaticamente quando adquirido no order bump do checkout oficial.</span>
                   </p>
                 )}
               </div>
@@ -392,17 +462,21 @@ export const ClientHubView: React.FC<ClientHubViewProps> = ({
                   <ChevronRight className="w-4 h-4 text-[#00D84F]" />
                 </button>
               ) : (
-                <button
-                  onClick={handleOpenCheckout97}
-                  className="w-full lg:w-auto px-7 py-3.5 rounded-full bg-[#00D84F] hover:bg-[#25eb69] text-black font-black text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#00D84F]/20 active:scale-98"
-                >
-                  <span>Desbloquear por R$97</span>
-                  <ArrowRight className="w-4 h-4 text-black" />
-                </button>
+                <div className="text-center lg:text-right">
+                  <span className="text-xs text-neutral-400 block mb-1 font-medium">Disponível no Order Bump</span>
+                  <button
+                    onClick={handleIrParaOfertaOuCheckout}
+                    className="w-full lg:w-auto px-6 py-3 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-white/20"
+                  >
+                    <span>Ver no Checkout</span>
+                    <ExternalLink className="w-3.5 h-3.5 text-neutral-400" />
+                  </button>
+                </div>
               )}
             </div>
           </div>
         </div>
+
       </div>
 
       {/* Advisory Support Banner */}

@@ -19,8 +19,8 @@ interface CheckoutModalProps {
   };
 }
 
-export const CHECKOUT_URL_67 = 'https://checkout.fexeducacao.com/pay/diagnostico-de-custo-pessoa-corporativo-mini-curso';
-export const CHECKOUT_URL_97 = 'https://checkout.fexeducacao.com/pay/plano-de-sucessao-completo-mini-curso';
+import { DIAGNOSTICO_CHECKOUT_URL, CHECKOUT_URL_67, CHECKOUT_URL_97 } from '../config/checkout';
+export { DIAGNOSTICO_CHECKOUT_URL, CHECKOUT_URL_67, CHECKOUT_URL_97 };
 
 export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   productType,
@@ -41,7 +41,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     : 'Plano de Sucessão Completo + Plano de 90 Dias';
   const targetUrl = is67 ? CHECKOUT_URL_67 : CHECKOUT_URL_97;
 
-  // Build checkout URL with pre-filled query params and automatic return redirect
+  // Build clean checkout URL with standard buyer pre-fill parameters only
   const checkoutParams = new URLSearchParams();
   if (leadData?.nome) checkoutParams.set('name', leadData.nome);
   if (leadData?.email) checkoutParams.set('email', leadData.email);
@@ -51,14 +51,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   }
   if (leadData?.empresa) checkoutParams.set('company', leadData.empresa);
 
-  // Return redirection configuration for Digital Manager Guru
-  if (typeof window !== 'undefined') {
-    const returnUrl = `${window.location.origin}${window.location.pathname}?status=approved&paid=${is67 ? '67' : '97'}&sck=${is67 ? 'fex_diag67' : 'fex_plan97'}`;
-    checkoutParams.set('return_url', returnUrl);
-    checkoutParams.set('redirect_url', returnUrl);
-    checkoutParams.set('sck', is67 ? 'fex_diag67' : 'fex_plan97');
-  }
-  
   const fullCheckoutUrl = targetUrl + (checkoutParams.toString() ? `?${checkoutParams.toString()}` : '');
 
   const handleGoToCheckout = async () => {
