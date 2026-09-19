@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { DiagnosticoResultado, LeadInfo, AccessStatus, PerfilEmpresa } from '../types';
+import React, { useState, useRef } from 'react';
+import { DiagnosticoResultado, LeadInfo, AccessStatus, PerfilEmpresa, PorteEmpresa } from '../types';
 import { formatarMoeda, LABEL_CLASSIFICACAO, DESCRICAO_CLASSIFICACAO } from '../utils/calculations';
 import { FexLogo } from './FexLogo';
 import { 
@@ -18,11 +18,21 @@ import {
   ShieldAlert,
   GraduationCap,
   PlayCircle,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Building2,
+  Users
 } from 'lucide-react';
 import { trackEvent } from '../services/analytics';
 import { DIAGNOSTICO_CHECKOUT_URL } from '../config/checkout';
 import { sendLeadToN8n } from '../services/webhook';
+
+const PORTES: { value: PorteEmpresa; label: string }[] = [
+  { value: 'Ate100', label: 'Até 100 colaboradores' },
+  { value: '101a300', label: '101 a 300 colaboradores' },
+  { value: '301a1000', label: '301 a 1000 colaboradores' },
+  { value: '1001a3000', label: '1001 a 3000 colaboradores' },
+  { value: '3001ouMais', label: '3001 ou mais colaboradores' }
+];
 
 interface DiagnosticResultProps {
   resultado: DiagnosticoResultado;
@@ -30,6 +40,7 @@ interface DiagnosticResultProps {
   perfil?: PerfilEmpresa;
   accessStatus: AccessStatus;
   onUpdateLead: (lead: LeadInfo) => void;
+  onUpdatePerfil?: (perfil: PerfilEmpresa) => void;
   onUpdateParams: (meses: number, perda: number) => void;
   onProceedToRaioX: () => void;
   onPrint: () => void;
@@ -43,6 +54,7 @@ export const DiagnosticResult: React.FC<DiagnosticResultProps> = ({
   perfil,
   accessStatus,
   onUpdateLead,
+  onUpdatePerfil,
   onUpdateParams,
   onProceedToRaioX,
   onPrint,
@@ -50,10 +62,10 @@ export const DiagnosticResult: React.FC<DiagnosticResultProps> = ({
   onNavigateToHub
 }) => {
   const [showMemoria, setShowMemoria] = useState(false);
-  const [showLeadFields, setShowLeadFields] = useState(false);
   const [leadErrors, setLeadErrors] = useState<Record<string, string>>({});
   const [shareCopied, setShareCopied] = useState(false);
   const [isSendingWebhook, setIsSendingWebhook] = useState(false);
+  const leadFormRef = useRef<HTMLDivElement>(null);
 
   // Check if diagnostic complete deliverable & mini-course is unlocked by confirmed payment
   const isUnlocked = ['diagnostic_paid', 'succession_unlocked', 'succession_paid'].includes(accessStatus);
@@ -62,15 +74,20 @@ export const DiagnosticResult: React.FC<DiagnosticResultProps> = ({
 
   const validateLead = (): boolean => {
     const errors: Record<string, string> = {};
-    if (showLeadFields) {
-      if (!lead.nome.trim()) errors.nome = 'Digite seu nome completo.';
-      if (!lead.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(lead.email)) {
-        errors.email = 'Digite um e-mail corporativo válido.';
-      }
-      if (!lead.whatsapp.trim() || lead.whatsapp.replace(/\D/g, '').length < 10) {
-        errors.whatsapp = 'Digite um telefone/WhatsApp válido com DDD.';
-      }
-      if (!lead.empresa.trim()) errors.empresa = 'Informe o nome da sua empresa.';
+    if (!lead.nome.trim()) {
+      errors.nome = 'Digite seu nome completo.';
+    }
+    if (!lead.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(lead.email)) {
+      errors.email = 'Digite um e-mail corporativo válido.';
+    }
+    if (!lead.whatsapp.trim() || lead.whatsapp.replace(/\D/g, '').length < 10) {
+      errors.whatsapp = 'Digite um telefone/WhatsApp válido com DDD.';
+    }
+    if (!lead.empresa.trim()) {
+      errors.empresa = 'Informe o nome da sua empresa.';
+    }
+    if (!perfil?.porte) {
+      errors.porte = 'Selecione a quantidade de colaboradores da empresa.';
     }
     setLeadErrors(errors);
     return Object.keys(errors).length === 0;
@@ -78,14 +95,18 @@ export const DiagnosticResult: React.FC<DiagnosticResultProps> = ({
 
   const handleGoToCheckout67 = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!validateLead()) return;
+    if (!validateLead()) {
+      leadFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
 
     setIsSendingWebhook(true);
 
     trackEvent('lead_captured_pre_checkout', {
       ...lead,
       nivelGeral,
-      custoTotal
+      custoTotal,
+      porte: perfil?.porte
     });
 
     // Build clean checkout URL with standard buyer pre-fill parameters only
@@ -440,69 +461,142 @@ export const DiagnosticResult: React.FC<DiagnosticResultProps> = ({
                   </div>
                 </div>
 
-                {/* Optional Buyer Pre-fill Expander */}
-                <div className="my-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowLeadFields(!showLeadFields)}
-                    className="text-xs text-neutral-400 hover:text-[#00D84F] underline cursor-pointer transition-colors"
-                  >
-                    {showLeadFields ? 'Ocultar dados corporativos adicionais ▲' : 'Personalizar dados para emissão corporativa (opcional) ▼'}
-                  </button>
-
-                  {showLeadFields && (
-                    <div className="mt-4 p-5 rounded-2xl bg-white/5 border border-white/10 text-left space-y-3">
-                      <p className="text-xs text-neutral-300 mb-2">
-                        Preencha seus dados corporativos para que o relatório saia personalizado com o nome da sua empresa:
-                      </p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[11px] font-bold uppercase text-neutral-400 mb-1">Nome Completo</label>
-                          <input
-                            type="text"
-                            placeholder="Ex: Roberto Silva"
-                            value={lead.nome}
-                            onChange={(e) => onUpdateLead({ ...lead, nome: e.target.value })}
-                            className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-xs focus:outline-none focus:border-[#00D84F]"
-                          />
-                          {leadErrors.nome && <p className="text-[10px] text-red-400 mt-1">{leadErrors.nome}</p>}
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-bold uppercase text-neutral-400 mb-1">E-mail Corporativo</label>
-                          <input
-                            type="email"
-                            placeholder="Ex: roberto@empresa.com.br"
-                            value={lead.email}
-                            onChange={(e) => onUpdateLead({ ...lead, email: e.target.value })}
-                            className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-xs focus:outline-none focus:border-[#00D84F]"
-                          />
-                          {leadErrors.email && <p className="text-[10px] text-red-400 mt-1">{leadErrors.email}</p>}
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-bold uppercase text-neutral-400 mb-1">WhatsApp com DDD</label>
-                          <input
-                            type="tel"
-                            placeholder="Ex: (11) 98765-4321"
-                            value={lead.whatsapp}
-                            onChange={(e) => onUpdateLead({ ...lead, whatsapp: e.target.value })}
-                            className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-xs focus:outline-none focus:border-[#00D84F]"
-                          />
-                          {leadErrors.whatsapp && <p className="text-[10px] text-red-400 mt-1">{leadErrors.whatsapp}</p>}
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-bold uppercase text-neutral-400 mb-1">Nome da Empresa</label>
-                          <input
-                            type="text"
-                            placeholder="Ex: Minha Empresa S.A."
-                            value={lead.empresa}
-                            onChange={(e) => onUpdateLead({ ...lead, empresa: e.target.value })}
-                            className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-xs focus:outline-none focus:border-[#00D84F]"
-                          />
-                          {leadErrors.empresa && <p className="text-[10px] text-red-400 mt-1">{leadErrors.empresa}</p>}
-                        </div>
-                      </div>
+                {/* Mandatory Corporate Data Box */}
+                <div ref={leadFormRef} id="formulario-emissao-corporativa" className="my-6 p-5 sm:p-6 rounded-2xl bg-white/[0.08] border border-white/15 text-left space-y-4 shadow-inner">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-[#00D84F] shrink-0" />
+                      <span className="text-xs font-black uppercase tracking-wider text-white">
+                        Dados Obrigatórios para Emissão Corporativa
+                      </span>
                     </div>
-                  )}
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#00D84F] bg-[#00D84F]/10 px-2.5 py-0.5 rounded-full border border-[#00D84F]/30 self-start sm:self-auto">
+                      Preenchimento Obrigatório
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-neutral-300 leading-relaxed">
+                    Preencha os dados institucionais da sua empresa para personalizar o relatório executivo e liberar o acesso seguro ao checkout do Diagnóstico Completo:
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    {/* Nome Completo */}
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-300 mb-1">
+                        Nome Completo <span className="text-[#00D84F]">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Ex: Roberto Silva"
+                        value={lead.nome}
+                        onChange={(e) => {
+                          onUpdateLead({ ...lead, nome: e.target.value });
+                          if (leadErrors.nome) setLeadErrors(prev => ({ ...prev, nome: '' }));
+                        }}
+                        className={`w-full px-3.5 py-2.5 rounded-xl bg-white/10 border text-white text-xs placeholder:text-neutral-500 focus:outline-none focus:bg-white/15 transition-all ${
+                          leadErrors.nome ? 'border-red-400 ring-1 ring-red-400' : 'border-white/20 focus:border-[#00D84F]'
+                        }`}
+                      />
+                      {leadErrors.nome && <p className="text-[10px] text-red-400 mt-1 font-medium">{leadErrors.nome}</p>}
+                    </div>
+
+                    {/* E-mail Corporativo */}
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-300 mb-1">
+                        E-mail Corporativo <span className="text-[#00D84F]">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        placeholder="Ex: roberto@empresa.com.br"
+                        value={lead.email}
+                        onChange={(e) => {
+                          onUpdateLead({ ...lead, email: e.target.value });
+                          if (leadErrors.email) setLeadErrors(prev => ({ ...prev, email: '' }));
+                        }}
+                        className={`w-full px-3.5 py-2.5 rounded-xl bg-white/10 border text-white text-xs placeholder:text-neutral-500 focus:outline-none focus:bg-white/15 transition-all ${
+                          leadErrors.email ? 'border-red-400 ring-1 ring-red-400' : 'border-white/20 focus:border-[#00D84F]'
+                        }`}
+                      />
+                      {leadErrors.email && <p className="text-[10px] text-red-400 mt-1 font-medium">{leadErrors.email}</p>}
+                    </div>
+
+                    {/* WhatsApp */}
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-300 mb-1">
+                        WhatsApp com DDD <span className="text-[#00D84F]">*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        placeholder="Ex: (11) 98765-4321"
+                        value={lead.whatsapp}
+                        onChange={(e) => {
+                          onUpdateLead({ ...lead, whatsapp: e.target.value });
+                          if (leadErrors.whatsapp) setLeadErrors(prev => ({ ...prev, whatsapp: '' }));
+                        }}
+                        className={`w-full px-3.5 py-2.5 rounded-xl bg-white/10 border text-white text-xs placeholder:text-neutral-500 focus:outline-none focus:bg-white/15 transition-all ${
+                          leadErrors.whatsapp ? 'border-red-400 ring-1 ring-red-400' : 'border-white/20 focus:border-[#00D84F]'
+                        }`}
+                      />
+                      {leadErrors.whatsapp && <p className="text-[10px] text-red-400 mt-1 font-medium">{leadErrors.whatsapp}</p>}
+                    </div>
+
+                    {/* Nome da Empresa */}
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-300 mb-1">
+                        Nome da Empresa <span className="text-[#00D84F]">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Ex: Minha Empresa S.A."
+                        value={lead.empresa}
+                        onChange={(e) => {
+                          onUpdateLead({ ...lead, empresa: e.target.value });
+                          if (leadErrors.empresa) setLeadErrors(prev => ({ ...prev, empresa: '' }));
+                        }}
+                        className={`w-full px-3.5 py-2.5 rounded-xl bg-white/10 border text-white text-xs placeholder:text-neutral-500 focus:outline-none focus:bg-white/15 transition-all ${
+                          leadErrors.empresa ? 'border-red-400 ring-1 ring-red-400' : 'border-white/20 focus:border-[#00D84F]'
+                        }`}
+                      />
+                      {leadErrors.empresa && <p className="text-[10px] text-red-400 mt-1 font-medium">{leadErrors.empresa}</p>}
+                    </div>
+
+                    {/* Quantidade de Colaboradores (puxada do início) */}
+                    <div className="sm:col-span-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-300">
+                          Quantidade de Colaboradores <span className="text-[#00D84F]">*</span>
+                        </label>
+                        <span className="text-[10px] text-neutral-400">
+                          (Identificado na Etapa 1)
+                        </span>
+                      </div>
+                      <div className="relative">
+                        <select
+                          value={perfil?.porte || ''}
+                          onChange={(e) => {
+                            const val = e.target.value as PorteEmpresa;
+                            if (onUpdatePerfil && perfil) {
+                              onUpdatePerfil({ ...perfil, porte: val });
+                            }
+                            if (leadErrors.porte) setLeadErrors(prev => ({ ...prev, porte: '' }));
+                          }}
+                          className={`w-full px-3.5 py-2.5 rounded-xl bg-neutral-900/90 border text-white text-xs focus:outline-none focus:border-[#00D84F] transition-all cursor-pointer ${
+                            leadErrors.porte ? 'border-red-400 ring-1 ring-red-400' : 'border-white/20'
+                          }`}
+                        >
+                          <option value="" disabled className="bg-neutral-900 text-neutral-400">
+                            Selecione a quantidade de colaboradores...
+                          </option>
+                          {PORTES.map((p) => (
+                            <option key={p.value} value={p.value} className="bg-neutral-900 text-white">
+                              {p.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      {leadErrors.porte && <p className="text-[10px] text-red-400 mt-1 font-medium">{leadErrors.porte}</p>}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Price Display */}

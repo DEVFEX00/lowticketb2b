@@ -434,6 +434,7 @@ export default function App() {
               perfil={state.perfil}
               accessStatus={state.accessStatus}
               onUpdateLead={handleUpdateLead}
+              onUpdatePerfil={handleUpdatePerfil}
               onUpdateParams={handleUpdateParams}
               onProceedToRaioX={() => handleNavigate('raiox')}
               onPrint={handlePrint}
