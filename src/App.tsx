@@ -1,10 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AppState, AccessStatus, PerfilEmpresa, CargoCritico, TacitKnowledgeSelection, LeadInfo, PlanoSucessao } from './types';
 import { loadSavedState, saveState, resetState } from './services/storage';
 import { calcularDiagnostico } from './utils/calculations';
 import { gerarPlanoPersonalizado } from './data/mockDefaults';
 import { trackEvent } from './services/analytics';
-import { CheckCircle2, X } from 'lucide-react';
+import { CheckCircle2, X, AlertTriangle } from 'lucide-react';
+import { PRODUCT_IDS } from './config/products';
+import { 
+  getUserSession, 
+  clearUserSession, 
+  saveUserSession, 
+  checkPurchaseStatus, 
+  UserSession, 
+  NormalizedPurchaseResult 
+} from './services/purchaseApi';
 
 // Components
 import { BrandHeader } from './components/BrandHeader';
@@ -20,10 +29,14 @@ import { MiniCursoView } from './components/MiniCursoView';
 import { ClientHubView } from './components/ClientHubView';
 import { CheckoutModal } from './components/CheckoutModal';
 import { PrintReportView } from './components/PrintReportView';
+import { PosCompraView } from './components/PosCompraView';
+import { LoginView } from './components/LoginView';
 
 export default function App() {
   const [state, setState] = useState<AppState>(() => loadSavedState());
+  const [userSession, setUserSession] = useState<UserSession | null>(() => getUserSession());
   const [paymentAlert, setPaymentAlert] = useState<string | null>(null);
+  const [isRefreshingPurchases, setIsRefreshingPurchases] = useState(false);
   const [checkoutModal, setCheckoutModal] = useState<{
     open: boolean;
     type: 'diagnostic_67' | 'succession_97';
@@ -32,225 +45,301 @@ export default function App() {
     type: 'diagnostic_67'
   });
 
-  // Handle post-checkout redirection from Guru and URL parameter detection
-  useEffect(() => {
+  // URL Path Mapper
+  const pathMap: Record<string, string> = {
+    'intro': '/',
+    'perfil': '/perfil',
+    'cargos': '/cargos',
+    'calculando': '/calculando',
+    'resultado': '/diagnostico',
+    'raiox': '/raio-x',
+    'upsell': '/upsell',
+    'plano': '/plano-de-sucessao',
+    'curso': '/mini-curso',
+    'hub': '/area-do-cliente',
+    'login': '/login',
+    'pos-compra': '/pos-compra'
+  };
+
+  const syncUrl = useCallback((screen: string, replace = false) => {
     try {
-      const url = new URL(window.location.href);
-      const params = url.searchParams;
+      const targetPath = pathMap[screen] || '/';
+      const search = screen === 'pos-compra' ? window.location.search : '';
+      const newUrl = `${targetPath}${search}`;
 
-      // Extract buyer data if sent back by Guru
-      const queryName = params.get('nome') || params.get('name') || params.get('first_name') || params.get('customer_name') || '';
-      const queryEmail = params.get('email') || params.get('customer_email') || '';
-      const queryPhone = params.get('whatsapp') || params.get('phone') || params.get('tel') || params.get('customer_phone') || '';
-      const queryCompany = params.get('empresa') || params.get('company') || '';
-
-      // Normalize helper: lowercase, strip accents, and trim
-      const norm = (s: string | null) => 
-        (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-
-      // Transaction status detection
-      const rawStatus = norm(
-        params.get('status') || 
-        params.get('transaction_status') || 
-        params.get('payment_status') || 
-        params.get('checkout') || 
-        params.get('checkout_status') || 
-        params.get('payment') || 
-        params.get('compra') || 
-        params.get('pix_status') || 
-        params.get('transacao') || 
-        params.get('result') || 
-        params.get('situacao') || 
-        ''
-      );
-
-      // Approved statuses in Guru (Portuguese & English)
-      const approvedStatuses = [
-        'approved',
-        'aprovada',
-        'aprovado',
-        'paid',
-        'paga',
-        'pago',
-        'completed',
-        'concluida',
-        'concluido',
-        'active',
-        'ativo',
-        'success',
-        'sucesso',
-        '1',
-        'true'
-      ];
-
-      const hasApprovedStatus = 
-        approvedStatuses.includes(rawStatus) ||
-        params.get('approved') === 'true' ||
-        params.get('approved') === '1' ||
-        params.get('sucesso') === 'true' ||
-        params.get('pago') === 'true';
-
-      const transactionId = (
-        params.get('transaction_id') ||
-        params.get('guru_transaction_id') ||
-        params.get('id') ||
-        params.get('transacao') ||
-        params.get('order_id') ||
-        params.get('pedido_id') ||
-        ''
-      ).trim();
-
-      // SECURITY: A purchase MUST have an approved status OR a verified transaction ID from Guru.
-      // Arbitrary URL manipulation (e.g., just typing ?paid=67 without approved status) will NOT grant access.
-      if (!hasApprovedStatus && !transactionId) {
-        return;
+      if (window.location.pathname !== targetPath) {
+        if (replace) {
+          window.history.replaceState({ screen }, '', newUrl);
+        } else {
+          window.history.pushState({ screen }, '', newUrl);
+        }
       }
-
-      // Identify which product was purchased: R$67 vs R$97
-      const paidParam = norm(params.get('paid') || params.get('p') || params.get('plano') || '');
-      const sckParam = norm(params.get('sck') || params.get('src') || params.get('utm_source') || params.get('utm_campaign') || '');
-      
-      const productText = norm(
-        [
-          params.get('product'),
-          params.get('produto'),
-          params.get('product_name'),
-          params.get('nome_produto'),
-          params.get('product_slug'),
-          params.get('slug'),
-          params.get('item'),
-          params.get('item_name'),
-          params.get('offer'),
-          params.get('oferta')
-        ].filter(Boolean).join(' ')
-      );
-
-      const priceText = norm(
-        params.get('total') ||
-        params.get('price') ||
-        params.get('valor') ||
-        params.get('amount') ||
-        params.get('order_total') ||
-        ''
-      ).replace(',', '.');
-
-      // Check R$ 97 (Plano de Sucessão)
-      const is97 = 
-        paidParam === '97' ||
-        paidParam.includes('97') ||
-        paidParam.includes('sucessao') ||
-        paidParam.includes('plano') ||
-        sckParam.includes('plan97') ||
-        sckParam.includes('fex_plan97') ||
-        sckParam.includes('sucessao') ||
-        priceText.startsWith('97') ||
-        priceText === '97.00' ||
-        priceText === '97' ||
-        productText.includes('plano de sucessao') ||
-        productText.includes('plano-de-sucessao') ||
-        productText.includes('sucessao') ||
-        productText.includes('97');
-
-      // Check R$ 67 (Diagnóstico + Mini-Curso)
-      const is67 = 
-        paidParam === '67' ||
-        paidParam.includes('67') ||
-        paidParam.includes('diag') ||
-        sckParam.includes('diag67') ||
-        sckParam.includes('fex_diag67') ||
-        priceText.startsWith('67') ||
-        priceText === '67.00' ||
-        priceText === '67' ||
-        productText.includes('diagnostico') ||
-        productText.includes('pessoa-chave') ||
-        productText.includes('pessoa chave') ||
-        productText.includes('corporativo') ||
-        productText.includes('67');
-
-      const targetScreen = params.get('screen') || params.get('step');
-
-      // EXECUTE UNLOCK BASED ON GURU RETURN
-      if (is97) {
-        // FLUXO R$ 97:
-        // Checkout Guru R$ 97 -> pagamento aprovado -> retorno ao site -> liberar Plano de Sucessão -> manter Diagnóstico + Mini-Curso liberados
-        setState((prev) => {
-          const updatedLead = {
-            ...prev.lead,
-            nome: queryName || prev.lead.nome,
-            email: queryEmail || prev.lead.email,
-            whatsapp: queryPhone || prev.lead.whatsapp,
-            empresa: queryCompany || prev.lead.empresa
-          };
-
-          // Guarantee Plano de Sucessão is instantiated so user can view it immediately
-          const plano = prev.planoSucessao || gerarPlanoPersonalizado(
-            updatedLead.empresa || 'Sua Empresa',
-            prev.resultado || calcularDiagnostico([], 12, 10),
-            prev.conhecimentoTacito || { tecnico: [], relacionamentos: [], julgamento: [], cultura: [] }
-          );
-
-          return {
-            ...prev,
-            lead: updatedLead,
-            accessStatus: 'succession_unlocked',
-            planoSucessao: plano,
-            currentScreen: targetScreen || 'plano'
-          };
-        });
-
-        trackEvent('checkout_return_success_97', { transactionId, status: rawStatus });
-        setPaymentAlert('🎉 Pagamento aprovado pelo Guru! Seu Plano de Sucessão de 90 Dias foi liberado com sucesso.');
-        window.history.replaceState({}, document.title, window.location.pathname);
-      } else if (is67) {
-        // FLUXO R$ 67:
-        // Checkout Guru R$ 67 -> pagamento aprovado -> retorno ao site -> liberar Diagnóstico + Mini-Curso -> manter Plano de Sucessão bloqueado
-        setState((prev) => {
-          const updatedLead = {
-            ...prev.lead,
-            nome: queryName || prev.lead.nome,
-            email: queryEmail || prev.lead.email,
-            whatsapp: queryPhone || prev.lead.whatsapp,
-            empresa: queryCompany || prev.lead.empresa
-          };
-
-          return {
-            ...prev,
-            lead: updatedLead,
-            // If user already had succession_unlocked, keep it; otherwise set diagnostic_paid (which keeps plano locked)
-            accessStatus: prev.accessStatus === 'succession_unlocked' ? 'succession_unlocked' : 'diagnostic_paid',
-            currentScreen: targetScreen || (prev.resultado ? 'resultado' : 'hub')
-          };
-        });
-
-        trackEvent('checkout_return_success_67', { transactionId, status: rawStatus });
-        setPaymentAlert('🎉 Pagamento aprovado pelo Guru! Seu acesso ao Diagnóstico Completo e ao Mini-Curso foi liberado com sucesso.');
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-    } catch (e) {
-      console.warn('[FEX Guru Return] Erro ao processar retorno do checkout Guru:', e);
+    } catch {
+      // Safe fallback in sandboxed iframes
     }
   }, []);
+
+  // Screen identification from URL pathname & query parameters
+  const getScreenFromUrl = (): { screen: string; email?: string; pedido?: string } => {
+    try {
+      const pathname = window.location.pathname.toLowerCase();
+      const params = new URLSearchParams(window.location.search);
+
+      const email = params.get('email') || params.get('customer_email') || '';
+      const pedido = params.get('pedido') || params.get('order_id') || params.get('transaction_id') || '';
+
+      const queryScreen = params.get('screen') || params.get('step') || params.get('route');
+      if (queryScreen) {
+        if (queryScreen === 'pos-compra' || queryScreen === 'poscompra') return { screen: 'pos-compra', email, pedido };
+        if (queryScreen === 'login') return { screen: 'login' };
+        if (queryScreen === 'hub' || queryScreen === 'area-do-cliente') return { screen: 'hub' };
+        if (queryScreen === 'diagnostico' || queryScreen === 'resultado') return { screen: 'resultado' };
+        if (queryScreen === 'mini-curso' || queryScreen === 'curso') return { screen: 'curso' };
+        if (queryScreen === 'plano-de-sucessao' || queryScreen === 'plano') return { screen: 'plano' };
+        return { screen: queryScreen, email, pedido };
+      }
+
+      if (pathname.includes('/pos-compra') || pathname.includes('/poscompra')) return { screen: 'pos-compra', email, pedido };
+      if (pathname.includes('/login')) return { screen: 'login' };
+      if (pathname.includes('/area-do-cliente') || pathname.includes('/hub')) return { screen: 'hub' };
+      if (pathname.includes('/mini-curso')) return { screen: 'curso' };
+      if (pathname.includes('/plano-de-sucessao')) return { screen: 'plano' };
+      if (pathname.includes('/diagnostico')) return { screen: 'resultado' };
+      if (pathname.includes('/cargos')) return { screen: 'cargos' };
+      if (pathname.includes('/perfil')) return { screen: 'perfil' };
+      if (params.get('pedido') || params.get('email')) {
+        // If arrived with purchase parameters on root, route to pos-compra
+        return { screen: 'pos-compra', email, pedido };
+      }
+    } catch (e) {
+      console.warn('[Routing] Erro ao extrair rota da URL:', e);
+    }
+    return { screen: 'intro' };
+  };
+
+  // Route protection checker
+  const canAccessScreen = (screen: string, currentSession: UserSession | null, currentStatus: AccessStatus): boolean => {
+    if (screen === 'curso') {
+      const hasCurso = 
+        ['diagnostic_paid', 'succession_unlocked', 'succession_paid'].includes(currentStatus) ||
+        Boolean(currentSession?.products?.includes(PRODUCT_IDS.MINI_CURSO));
+      return hasCurso;
+    }
+
+    if (screen === 'plano') {
+      const hasPlano = 
+        ['succession_unlocked', 'succession_paid'].includes(currentStatus) ||
+        Boolean(currentSession?.products?.includes(PRODUCT_IDS.PLANO_SUCESSAO));
+      return hasPlano;
+    }
+
+    return true;
+  };
+
+  // Navigate screen handler with route protection
+  const handleNavigate = (screen: string, replace = false) => {
+    // Check route protection (Item 37)
+    if (!canAccessScreen(screen, userSession, state.accessStatus)) {
+      if (screen === 'curso') {
+        setPaymentAlert('🔒 O Mini-Curso é exclusivo para compradores do Diagnóstico (R$ 67). Adquira para desbloquear.');
+      } else if (screen === 'plano') {
+        setPaymentAlert('🔒 O Plano de Sucessão de 90 Dias é disponibilizado via Order Bump no checkout oficial.');
+      }
+      setState((prev) => ({ ...prev, currentScreen: 'hub' }));
+      syncUrl('hub', true);
+      return;
+    }
+
+    setState((prev) => ({
+      ...prev,
+      currentScreen: screen
+    }));
+    syncUrl(screen, replace);
+    trackEvent('screen_viewed', { screen });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Initial mount: inspect URL and establish session sync
+  useEffect(() => {
+    const routeInfo = getScreenFromUrl();
+    const storedSession = getUserSession();
+
+    if (storedSession) {
+      setUserSession(storedSession);
+      // Synchronize access status with verified session products
+      if (storedSession.products.includes(PRODUCT_IDS.PLANO_SUCESSAO)) {
+        setState((prev) => ({
+          ...prev,
+          accessStatus: 'succession_unlocked',
+          lead: { ...prev.lead, email: storedSession.email || prev.lead.email }
+        }));
+      } else if (storedSession.products.includes(PRODUCT_IDS.DIAGNOSTICO_COMPLETO)) {
+        setState((prev) => ({
+          ...prev,
+          accessStatus: prev.accessStatus === 'succession_unlocked' ? 'succession_unlocked' : 'diagnostic_paid',
+          lead: { ...prev.lead, email: storedSession.email || prev.lead.email }
+        }));
+      }
+    }
+
+    // Set initial screen if specific route requested
+    if (routeInfo.screen && routeInfo.screen !== 'intro') {
+      handleNavigate(routeInfo.screen, true);
+    }
+
+    // Popstate listener for browser back/forward
+    const handlePopState = () => {
+      const current = getScreenFromUrl();
+      if (current.screen) {
+        setState((prev) => ({ ...prev, currentScreen: current.screen }));
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Background refresh of user purchases (Items 28 & 29)
+  const handleRefreshPurchases = async () => {
+    if (!userSession?.email) return;
+
+    setIsRefreshingPurchases(true);
+    try {
+      const res = await checkPurchaseStatus(userSession.email, userSession.orderId);
+      if (res.success && res.products.length > 0) {
+        const updatedSession: UserSession = {
+          ...userSession,
+          products: res.products,
+          orderId: res.orderId || userSession.orderId,
+          authenticatedAt: new Date().toISOString()
+        };
+        saveUserSession(updatedSession);
+        setUserSession(updatedSession);
+
+        if (res.hasOrderBump && res.products.includes(PRODUCT_IDS.PLANO_SUCESSAO)) {
+          setState((prev) => ({
+            ...prev,
+            accessStatus: 'succession_unlocked'
+          }));
+          setPaymentAlert('🎉 Seus produtos foram sincronizados com sucesso: Plano de Sucessão de 90 Dias ativo!');
+        } else if (res.products.includes(PRODUCT_IDS.DIAGNOSTICO_COMPLETO)) {
+          setState((prev) => ({
+            ...prev,
+            accessStatus: prev.accessStatus === 'succession_unlocked' ? 'succession_unlocked' : 'diagnostic_paid'
+          }));
+          setPaymentAlert('✓ Seus produtos foram sincronizados com sucesso.');
+        }
+      }
+    } catch (err) {
+      console.warn('[Sync] Falha ao sincronizar produtos:', err);
+    } finally {
+      setIsRefreshingPurchases(false);
+    }
+  };
+
+  // Handle post-purchase confirmed success from PosCompraView
+  const handleConfirmSuccess = (result: NormalizedPurchaseResult) => {
+    const updatedLead = {
+      ...state.lead,
+      email: result.email || state.lead.email,
+      nome: result.customerName || state.lead.nome
+    };
+
+    const hasPlano = result.hasOrderBump && result.products.includes(PRODUCT_IDS.PLANO_SUCESSAO);
+    const newStatus: AccessStatus = hasPlano ? 'succession_unlocked' : 'diagnostic_paid';
+
+    // Instantiate Plano de Sucessão if unlocked
+    const plano = state.planoSucessao || gerarPlanoPersonalizado(
+      updatedLead.empresa || 'Sua Empresa',
+      state.resultado || calcularDiagnostico([], 12, 10),
+      state.conhecimentoTacito || { tecnico: [], relacionamentos: [], julgamento: [], cultura: [] }
+    );
+
+    const newSession: UserSession = {
+      email: result.email,
+      orderId: result.orderId,
+      customerName: result.customerName,
+      products: result.products,
+      authenticatedAt: new Date().toISOString()
+    };
+
+    saveUserSession(newSession);
+    setUserSession(newSession);
+
+    setState((prev) => ({
+      ...prev,
+      lead: updatedLead,
+      accessStatus: newStatus,
+      planoSucessao: plano,
+      currentScreen: 'hub'
+    }));
+
+    if (hasPlano) {
+      setPaymentAlert('🎉 Compra confirmada com sucesso! Diagnóstico Completo, Mini-Curso e Plano de Sucessão liberados.');
+    } else {
+      setPaymentAlert('🎉 Compra confirmada com sucesso! Diagnóstico Completo e Mini-Curso liberados.');
+    }
+
+    syncUrl('hub', true);
+  };
+
+  // Handle Login success
+  const handleLoginSuccess = (result: NormalizedPurchaseResult) => {
+    const hasPlano = result.hasOrderBump && result.products.includes(PRODUCT_IDS.PLANO_SUCESSAO);
+    const newStatus: AccessStatus = hasPlano ? 'succession_unlocked' : 'diagnostic_paid';
+
+    const newSession: UserSession = {
+      email: result.email,
+      orderId: result.orderId,
+      customerName: result.customerName,
+      products: result.products,
+      authenticatedAt: new Date().toISOString()
+    };
+
+    setUserSession(newSession);
+
+    setState((prev) => ({
+      ...prev,
+      accessStatus: newStatus,
+      lead: {
+        ...prev.lead,
+        email: result.email,
+        nome: result.customerName || prev.lead.nome
+      },
+      currentScreen: 'hub'
+    }));
+
+    setPaymentAlert(`Bem-vindo à sua Área de Membros, ${result.customerName || result.email}!`);
+    syncUrl('hub', true);
+  };
+
+  // Handle Logout (Item 27)
+  const handleLogout = () => {
+    clearUserSession();
+    setUserSession(null);
+    setState((prev) => ({
+      ...prev,
+      accessStatus: prev.resultado ? 'diagnostic_completed' : 'visitor',
+      currentScreen: 'login'
+    }));
+    trackEvent('user_logout');
+    setPaymentAlert('Você saiu da sua conta.');
+    syncUrl('login', true);
+  };
 
   // Save to localStorage on state updates
   useEffect(() => {
     saveState(state);
   }, [state]);
 
-  // Navigate screen handler
-  const handleNavigate = (screen: string) => {
-    setState((prev) => ({
-      ...prev,
-      currentScreen: screen
-    }));
-    trackEvent('screen_viewed', { screen });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
   // Reset entire application
   const handleReset = () => {
+    clearUserSession();
+    setUserSession(null);
     const fresh = resetState();
     setState(fresh);
     trackEvent('app_reset');
+    syncUrl('intro', true);
   };
 
   // Perfil update
@@ -276,12 +365,12 @@ export default function App() {
       ...prev,
       resultado: res,
       planoSucessao: plano,
-      // Only retain unlocked status if customer already paid R$ 67 or R$ 97
       accessStatus: ['diagnostic_paid', 'succession_unlocked', 'succession_paid'].includes(prev.accessStatus)
         ? prev.accessStatus
         : 'diagnostic_pending',
       currentScreen: 'resultado'
     }));
+    syncUrl('resultado', true);
     trackEvent('calculation_completed', { custoTotal: res.custoTotal, nivelGeral: res.nivelGeral });
   };
 
@@ -359,7 +448,7 @@ export default function App() {
   };
 
   // Check dark screen styling
-  const isDarkScreen = ['intro', 'calculando'].includes(state.currentScreen);
+  const isDarkScreen = ['intro', 'calculando', 'pos-compra', 'login'].includes(state.currentScreen);
 
   return (
     <div className={`min-h-screen flex flex-col font-['Montserrat'] ${isDarkScreen ? 'bg-black text-white' : 'bg-[#000000] text-[#111111]'}`}>
@@ -368,15 +457,17 @@ export default function App() {
         currentScreen={state.currentScreen}
         accessStatus={state.accessStatus}
         hasResult={Boolean(state.resultado)}
+        userSession={userSession}
         onNavigate={handleNavigate}
+        onLogout={handleLogout}
       />
 
       {/* Post-Checkout Confirmation Notification Banner */}
       {paymentAlert && (
-        <div className="bg-[#00D84F] text-black px-4 py-3 shadow-md">
+        <div className="bg-[#00D84F] text-black px-4 py-3 shadow-md animate-fadeIn">
           <div className="max-w-6xl mx-auto flex items-center justify-between gap-3 text-xs sm:text-sm font-bold">
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 shrink-0" />
+              <CheckCircle2 className="w-5 h-5 shrink-0 text-black" />
               <span>{paymentAlert}</span>
             </div>
             <button
@@ -392,12 +483,32 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className={`flex-1 flex flex-col justify-center py-6 sm:py-10 px-3 sm:px-6 transition-all duration-300 no-print ${isDarkScreen ? 'bg-black' : 'bg-[#0a0a0a]'}`}>
+        
+        {/* ROTA PÓS-COMPRA (ITEM 8, 9, 10, 15) */}
+        {state.currentScreen === 'pos-compra' && (
+          <PosCompraView
+            onConfirmSuccess={handleConfirmSuccess}
+            onNavigateToHub={() => handleNavigate('hub')}
+            onNavigateToLogin={() => handleNavigate('login')}
+          />
+        )}
+
+        {/* ROTA LOGIN (ITEM 18, 19, 20) */}
+        {state.currentScreen === 'login' && (
+          <LoginView
+            onLoginSuccess={handleLoginSuccess}
+            onNavigateToCalculator={() => handleNavigate('intro')}
+          />
+        )}
+
+        {/* 1. CALCULADORA GRATUITA: INTRO */}
         {state.currentScreen === 'intro' && (
           <LandingIntro
             onStart={() => handleNavigate('perfil')}
           />
         )}
 
+        {/* 1. CALCULADORA GRATUITA: ETAPA 1 (PERFIL) */}
         {state.currentScreen === 'perfil' && (
           <DiagnosticForm
             step="perfil"
@@ -410,6 +521,7 @@ export default function App() {
           />
         )}
 
+        {/* 1. CALCULADORA GRATUITA: ETAPA 2 (CARGOS) */}
         {state.currentScreen === 'cargos' && (
           <DiagnosticForm
             step="cargos"
@@ -422,10 +534,12 @@ export default function App() {
           />
         )}
 
+        {/* CALCULANDO ANIMATION */}
         {state.currentScreen === 'calculando' && (
           <CalculatingSuspense onFinish={handleFinishCalculation} />
         )}
 
+        {/* 2. RESULTADO GRATUITO (ITEM 3 & 4) */}
         {state.currentScreen === 'resultado' && (
           state.resultado ? (
             <DiagnosticResult
@@ -457,6 +571,7 @@ export default function App() {
           )
         )}
 
+        {/* RAIO-X DE CONHECIMENTO */}
         {state.currentScreen === 'raiox' && (
           <RaioXConhecimento
             conhecimentoTacito={state.conhecimentoTacito}
@@ -467,19 +582,21 @@ export default function App() {
           />
         )}
 
+        {/* UPSELL OFFER */}
         {state.currentScreen === 'upsell' && (
           <UpsellSuccessionOffer
             resultado={state.resultado}
             lead={state.lead}
-            hasUnlockedSuccession={['succession_unlocked', 'course_access'].includes(state.accessStatus)}
+            hasUnlockedSuccession={['succession_unlocked', 'course_access', 'succession_paid'].includes(state.accessStatus)}
             onUnlockSuccession={openCheckout97}
             onOpenCheckout97={openCheckout97}
             onBack={() => handleNavigate('raiox')}
           />
         )}
 
+        {/* 3. PLANO DE SUCESSÃO (ITEM 24 & 25) */}
         {state.currentScreen === 'plano' && (
-          (['succession_unlocked', 'course_access', 'succession_paid'].includes(state.accessStatus) && state.planoSucessao) ? (
+          ((['succession_unlocked', 'course_access', 'succession_paid'].includes(state.accessStatus) || userSession?.products?.includes(PRODUCT_IDS.PLANO_SUCESSAO)) && state.planoSucessao) ? (
             <SuccessionPlanView
               plano={state.planoSucessao}
               resultado={state.resultado}
@@ -490,36 +607,46 @@ export default function App() {
               onPrint={handlePrint}
             />
           ) : (
-            <UpsellSuccessionOffer
-              resultado={state.resultado}
-              lead={state.lead}
-              hasUnlockedSuccession={false}
-              onUnlockSuccession={openCheckout97}
-              onOpenCheckout97={openCheckout97}
-              onBack={() => handleNavigate('hub')}
-            />
+            <div className="max-w-md mx-auto text-center py-12 px-6 bg-white text-neutral-900 rounded-3xl p-8 border border-neutral-200 shadow-xl animate-fadeIn">
+              <h2 className="text-xl font-black mb-2 text-neutral-900">Plano de Sucessão</h2>
+              <p className="text-xs text-neutral-600 mb-6 leading-relaxed">
+                Este conteúdo está bloqueado. O Plano de Sucessão de 90 Dias é liberado automaticamente quando adquirido via Order Bump no checkout oficial.
+              </p>
+              <button
+                onClick={() => handleNavigate('hub')}
+                className="px-6 py-3.5 rounded-full bg-neutral-900 hover:bg-black text-white font-extrabold text-xs uppercase tracking-wider transition-all cursor-pointer"
+              >
+                Voltar para Área de Membros
+              </button>
+            </div>
           )
         )}
 
+        {/* 4. MINI-CURSO: GESTÃO DE PESSOAS-CHAVE (ITEM 23) */}
         {state.currentScreen === 'curso' && (
           <MiniCursoView
             cursoProgresso={state.cursoProgresso}
             onToggleAulaConcluida={handleToggleAulaConcluida}
             onBack={() => handleNavigate('hub')}
-            isLocked={!['diagnostic_paid', 'diagnostic_completed', 'succession_unlocked', 'course_access', 'succession_paid'].includes(state.accessStatus)}
+            isLocked={!['diagnostic_paid', 'diagnostic_completed', 'succession_unlocked', 'course_access', 'succession_paid'].includes(state.accessStatus) && !userSession?.products?.includes(PRODUCT_IDS.MINI_CURSO)}
             onUnlock={openCheckout67}
           />
         )}
 
+        {/* 5. ÁREA DE MEMBROS (ITEM 21, 22, 23, 24, 27) */}
         {state.currentScreen === 'hub' && (
           <ClientHubView
             accessStatus={state.accessStatus}
             lead={state.lead}
             resultado={state.resultado}
             planoSucessao={state.planoSucessao}
+            userSession={userSession}
             onNavigate={handleNavigate}
             onOpenCheckout67={openCheckout67}
             onOpenCheckout97={openCheckout97}
+            onLogout={handleLogout}
+            onRefreshPurchases={handleRefreshPurchases}
+            isRefreshing={isRefreshingPurchases}
           />
         )}
       </main>
@@ -527,7 +654,7 @@ export default function App() {
       {/* Brand Footer */}
       <BrandFooter isDark={isDarkScreen} />
 
-      {/* Checkout Modal */}
+      {/* Checkout Modal (preserved) */}
       <CheckoutModal
         isOpen={checkoutModal.open}
         productType={checkoutModal.type}

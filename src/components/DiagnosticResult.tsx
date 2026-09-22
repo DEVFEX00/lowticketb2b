@@ -173,11 +173,10 @@ export const DiagnosticResult: React.FC<DiagnosticResultProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={onNavigateToHub}
-            className="flex items-center gap-1.5 text-xs font-bold text-neutral-700 hover:text-black px-3 py-1.5 rounded-full border border-neutral-300 hover:bg-neutral-100 transition-colors cursor-pointer"
-            title="Ir para a Área do Cliente"
+            className="flex items-center gap-1.5 text-xs font-bold text-neutral-700 hover:text-black px-3.5 py-1.5 rounded-full border border-neutral-300 hover:bg-neutral-100 transition-colors cursor-pointer"
+            title="Voltar para a Área de Membros"
           >
-            <LayoutDashboard className="w-3.5 h-3.5 text-[#00D84F]" />
-            <span>Área do Cliente</span>
+            <span>← Voltar para Área de Membros</span>
           </button>
 
           {isUnlocked && (

@@ -60,8 +60,7 @@ export const MiniCursoView: React.FC<MiniCursoViewProps> = ({
           onClick={onBack}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white hover:bg-neutral-100 text-neutral-800 border border-neutral-200 text-xs font-bold transition-all shadow-sm cursor-pointer active:scale-98"
         >
-          <ArrowLeft className="w-4 h-4 text-black" />
-          <span>Voltar para Área do Cliente</span>
+          <span>← Voltar para Área de Membros</span>
         </button>
 
         <div className="flex items-center gap-3">

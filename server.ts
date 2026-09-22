@@ -64,6 +64,103 @@ async function startServer() {
   });
 
   /**
+   * Endpoint /api/check-purchase
+   * Proxies calls to the official n8n confirmation webhook:
+   * https://n8n.fexeducacao.com/webhook/j2gYOp1tOyw0ZhOn-low-ticket-b2b-aprovado-redirecionamento?email=...&pedido=...
+   * Handles CORS, prevents browser blocks and unifies responses.
+   */
+  app.get('/api/check-purchase', async (req: Request, res: Response) => {
+    const email = (req.query.email as string || '').toLowerCase().trim();
+    const pedido = (req.query.pedido as string || req.query.order_id as string || '').trim();
+
+    if (!email && !pedido) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'E-mail ou código do pedido é obrigatório para consulta.' 
+      });
+    }
+
+    try {
+      const queryParams = new URLSearchParams();
+      if (email) queryParams.set('email', email);
+      if (pedido) queryParams.set('pedido', pedido);
+
+      const n8nWebhookUrl = `https://n8n.fexeducacao.com/webhook/j2gYOp1tOyw0ZhOn-low-ticket-b2b-aprovado-redirecionamento?${queryParams.toString()}`;
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+      const response = await fetch(n8nWebhookUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      const text = await response.text();
+      let parsedData: any = null;
+      try {
+        parsedData = text && text.trim() ? JSON.parse(text) : null;
+      } catch {
+        parsedData = { raw: text };
+      }
+
+      // If n8n returned a confirmed payload
+      if (parsedData && (parsedData.sucesso === true || parsedData.success === true || parsedData.podutos || parsedData.produtos)) {
+        return res.json({
+          success: true,
+          email,
+          orderId: pedido,
+          data: parsedData
+        });
+      }
+
+      // Fallback check against local purchase cache (e.g. Guru direct webhook)
+      let localRecord: ConfirmedPurchase | undefined;
+      if (email && purchasesStore.has(email)) {
+        localRecord = purchasesStore.get(email);
+      } else if (pedido && purchasesStore.has(pedido)) {
+        localRecord = purchasesStore.get(pedido);
+      }
+
+      if (localRecord) {
+        return res.json({
+          success: true,
+          email: localRecord.email,
+          orderId: localRecord.id,
+          data: {
+            sucesso: true,
+            podutos: localRecord.productType === 'succession_97' 
+              ? 'Diagnóstico de Custo Pessoa Corporativo + Mini Curso,ORDER BUMP'
+              : 'Diagnóstico de Custo Pessoa Corporativo + Mini Curso'
+          }
+        });
+      }
+
+      // Not yet confirmed (awaiting payment approval)
+      return res.json({
+        success: false,
+        pending: true,
+        email,
+        orderId: pedido,
+        message: 'Ainda não identificamos a confirmação deste pagamento.',
+        data: parsedData
+      });
+    } catch (err: any) {
+      console.error('[API check-purchase] Erro ao consultar confirmação:', err?.message);
+      return res.status(500).json({
+        success: false,
+        error: true,
+        message: 'Falha de comunicação temporária com a API de confirmação.',
+        details: err?.message
+      });
+    }
+  });
+
+  /**
    * Official Digital Manager Guru Webhook / Postback Endpoint
    * URL to configure in Guru Webhooks (Vendas Aprovadas):
    * https://[SEU_DOMINIO]/api/webhook/guru

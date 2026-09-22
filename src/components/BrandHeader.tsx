@@ -1,24 +1,25 @@
 import React from 'react';
 import { AccessStatus } from '../types';
 import { FexLogo } from './FexLogo';
-import { ShieldCheck, Sparkles, LayoutDashboard } from 'lucide-react';
+import { ShieldCheck, LayoutDashboard, User, LogIn, LogOut } from 'lucide-react';
+import { UserSession } from '../services/purchaseApi';
 
 interface BrandHeaderProps {
   currentScreen: string;
   accessStatus: AccessStatus;
   hasResult?: boolean;
-  devMode?: boolean;
+  userSession?: UserSession | null;
   onNavigate: (screen: string) => void;
-  onSelectDemoState?: (status: AccessStatus) => void;
-  onToggleDevMode?: () => void;
-  onReset?: () => void;
+  onLogout?: () => void;
 }
 
 export const BrandHeader: React.FC<BrandHeaderProps> = ({
   currentScreen,
   accessStatus,
   hasResult = false,
-  onNavigate
+  userSession,
+  onNavigate,
+  onLogout
 }) => {
   return (
     <header className="w-full sticky top-0 z-40 shadow-sm">
@@ -49,7 +50,7 @@ export const BrandHeader: React.FC<BrandHeaderProps> = ({
           <div 
             onClick={() => onNavigate('hub')} 
             className="flex items-center cursor-pointer group"
-            title="Ir para Área do Cliente"
+            title="Ir para Área de Membros"
           >
             <FexLogo variant="dark" size="sm" />
           </div>
@@ -65,7 +66,7 @@ export const BrandHeader: React.FC<BrandHeaderProps> = ({
               }`}
             >
               <LayoutDashboard className="w-3 h-3 text-current" />
-              <span>Área do Cliente</span>
+              <span>Área de Membros</span>
             </button>
 
             <button
@@ -100,6 +101,30 @@ export const BrandHeader: React.FC<BrandHeaderProps> = ({
             >
               Plano
             </button>
+
+            {/* Auth Action */}
+            {userSession ? (
+              <button
+                onClick={onLogout}
+                className="ml-1 px-2.5 py-1 rounded-full text-xs font-bold text-neutral-400 hover:text-white hover:bg-white/10 transition-all flex items-center gap-1"
+                title={`Conectado como ${userSession.email}. Clique para Sair.`}
+              >
+                <LogOut className="w-3 h-3 text-neutral-400" />
+                <span className="hidden sm:inline">Sair</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => onNavigate('login')}
+                className={`ml-1 px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1 ${
+                  currentScreen === 'login'
+                    ? 'bg-white/20 text-white'
+                    : 'text-white/80 hover:text-white hover:bg-white/10 border border-white/20'
+                }`}
+              >
+                <LogIn className="w-3 h-3 text-[#00D84F]" />
+                <span>Entrar</span>
+              </button>
+            )}
           </nav>
         </div>
       </div>

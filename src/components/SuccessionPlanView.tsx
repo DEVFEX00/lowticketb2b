@@ -63,9 +63,9 @@ export const SuccessionPlanView: React.FC<SuccessionPlanViewProps> = ({
           <button
             onClick={onNavigateToHub}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-neutral-300 hover:bg-neutral-100 text-xs font-bold text-neutral-700 cursor-pointer transition-colors"
-            title="Retornar para a Área do Cliente"
+            title="Retornar para a Área de Membros"
           >
-            <span>← Área do Cliente</span>
+            <span>← Voltar para Área de Membros</span>
           </button>
 
           <button
