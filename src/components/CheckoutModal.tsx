@@ -19,7 +19,7 @@ interface CheckoutModalProps {
   };
 }
 
-import { DIAGNOSTICO_CHECKOUT_URL, CHECKOUT_URL_67, CHECKOUT_URL_97 } from '../config/checkout';
+import { DIAGNOSTICO_CHECKOUT_URL, CHECKOUT_URL_67, CHECKOUT_URL_97, buildCheckoutUrl, prepareCheckoutSession } from '../config/checkout';
 export { DIAGNOSTICO_CHECKOUT_URL, CHECKOUT_URL_67, CHECKOUT_URL_97 };
 
 export const CheckoutModal: React.FC<CheckoutModalProps> = ({
@@ -39,22 +39,22 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const title = is67 
     ? 'Diagnóstico de Custo e Risco de Pessoa-Chave'
     : 'Plano de Sucessão Completo + Plano de 90 Dias';
-  const targetUrl = is67 ? CHECKOUT_URL_67 : CHECKOUT_URL_97;
 
-  // Build clean checkout URL with standard buyer pre-fill parameters only
-  const checkoutParams = new URLSearchParams();
-  if (leadData?.nome) checkoutParams.set('name', leadData.nome);
-  if (leadData?.email) checkoutParams.set('email', leadData.email);
-  if (leadData?.whatsapp) {
-    const rawPhone = leadData.whatsapp.replace(/\D/g, '');
-    checkoutParams.set('phone', rawPhone || leadData.whatsapp);
-  }
-  if (leadData?.empresa) checkoutParams.set('company', leadData.empresa);
+  const buyerData = {
+    name: leadData?.nome,
+    email: leadData?.email,
+    phone: leadData?.whatsapp,
+    company: leadData?.empresa,
+    productType
+  };
 
-  const fullCheckoutUrl = targetUrl + (checkoutParams.toString() ? `?${checkoutParams.toString()}` : '');
+  const fullCheckoutUrl = buildCheckoutUrl(buyerData, productType);
 
   const handleGoToCheckout = async () => {
     setIsRedirecting(true);
+
+    // Salvar contexto no sessionStorage para retorno garantido
+    prepareCheckoutSession(buyerData);
 
     trackEvent(is67 ? 'checkout_67_click' : 'checkout_97_click', {
       product: title,

@@ -86,26 +86,42 @@ export default function App() {
       const pathname = window.location.pathname.toLowerCase();
       const params = new URLSearchParams(window.location.search);
 
-      const email = 
+      const email = (
         params.get('email') || 
+        params.get('e-mail') ||
         params.get('customer_email') || 
         params.get('buyer_email') || 
         params.get('customer[email]') || 
         params.get('e') || 
-        '';
+        ''
+      ).toLowerCase().trim();
 
-      const pedido = 
+      const pedido = (
         params.get('pedido') || 
+        params.get('pedido_id') ||
         params.get('order_id') || 
         params.get('id') || 
         params.get('transaction_id') || 
         params.get('trans_id') || 
         params.get('guru_order_id') || 
         params.get('order') || 
-        '';
+        ''
+      ).trim();
 
-      // Item 3: Se o retorno do checkout trouxer parâmetros (na raiz ou em qualquer rota), prioriza pos-compra
-      if (email || pedido) {
+      // Se a URL contiver rotas de conclusão/pós-compra ou obrigado
+      if (
+        pathname.includes('/pos-compra') || 
+        pathname.includes('/poscompra') ||
+        pathname.includes('/obrigado') ||
+        pathname.includes('/obrigada') ||
+        pathname.includes('/sucesso') ||
+        pathname.includes('/confirmacao')
+      ) {
+        return { screen: 'pos-compra', email, pedido };
+      }
+
+      // Se o retorno do checkout trouxer status ou parâmetros do pedido, processa via pos-compra
+      if (email || pedido || params.get('status') === 'approved' || params.get('status') === 'paid') {
         return { screen: 'pos-compra', email, pedido };
       }
 
@@ -113,22 +129,16 @@ export default function App() {
       if (queryScreen) {
         if (queryScreen === 'pos-compra' || queryScreen === 'poscompra') return { screen: 'pos-compra', email, pedido };
         if (queryScreen === 'login') return { screen: 'login' };
-        if (queryScreen === 'hub' || queryScreen === 'area-do-cliente') {
-          const stored = getUserSession();
-          return stored && stored.products.length > 0 ? { screen: 'hub' } : { screen: 'login' };
-        }
+        if (queryScreen === 'hub' || queryScreen === 'area-do-cliente') return { screen: 'hub' };
         if (queryScreen === 'diagnostico' || queryScreen === 'resultado') return { screen: 'resultado' };
         if (queryScreen === 'mini-curso' || queryScreen === 'curso') return { screen: 'curso' };
         if (queryScreen === 'plano-de-sucessao' || queryScreen === 'plano') return { screen: 'plano' };
         return { screen: queryScreen, email, pedido };
       }
 
-      if (pathname.includes('/pos-compra') || pathname.includes('/poscompra')) return { screen: 'pos-compra', email, pedido };
       if (pathname.includes('/login')) return { screen: 'login' };
       if (pathname.includes('/area-do-cliente') || pathname.includes('/hub')) {
-        const stored = getUserSession();
-        // Item 16 & 17: Se possuir sessão válida, acessa /area-do-cliente; se não possuir, redireciona para /login
-        return stored && stored.products.length > 0 ? { screen: 'hub' } : { screen: 'login' };
+        return { screen: 'hub' };
       }
       if (pathname.includes('/mini-curso')) return { screen: 'curso' };
       if (pathname.includes('/plano-de-sucessao')) return { screen: 'plano' };
@@ -143,9 +153,19 @@ export default function App() {
 
   // Route protection checker
   const canAccessScreen = (screen: string, currentSession: UserSession | null, currentStatus: AccessStatus): boolean => {
-    // Item 16 & 17: Área do cliente requer sessão ativa com produtos
+    // Área do cliente: aceita se houver sessão ativa, email no sessionStorage ou identificação do comprador
     if (screen === 'hub') {
-      return Boolean(currentSession && currentSession.email && currentSession.products?.length > 0);
+      const hasEmailOrSession = Boolean(
+        (currentSession && currentSession.email) ||
+        (typeof window !== 'undefined' && (
+          sessionStorage.getItem('fex_current_email') ||
+          sessionStorage.getItem('fex_checkout_email') ||
+          sessionStorage.getItem('fex_post_purchase_active') ||
+          localStorage.getItem('fex_last_buyer_email')
+        )) ||
+        state.lead.email
+      );
+      return hasEmailOrSession;
     }
 
     if (screen === 'curso') {
@@ -221,6 +241,57 @@ export default function App() {
       }
     }
 
+    // Sincronização e liberação instantânea caso o usuário tenha retornado de compra
+    const isPostPurchaseActive = typeof window !== 'undefined' && Boolean(
+      sessionStorage.getItem('fex_post_purchase_active') === 'true' ||
+      localStorage.getItem('fex_post_purchase_active') === 'true'
+    );
+
+    if (isPostPurchaseActive) {
+      const is97 = Boolean(
+        sessionStorage.getItem('fex_checkout_type') === 'succession_97' ||
+        localStorage.getItem('fex_checkout_type') === 'succession_97'
+      );
+      const autoProducts = is97
+        ? [PRODUCT_IDS.DIAGNOSTICO_COMPLETO, PRODUCT_IDS.MINI_CURSO, PRODUCT_IDS.PLANO_SUCESSAO]
+        : [PRODUCT_IDS.DIAGNOSTICO_COMPLETO, PRODUCT_IDS.MINI_CURSO];
+
+      const buyerEmail = 
+        routeInfo.email ||
+        sessionStorage.getItem('fex_current_email') ||
+        sessionStorage.getItem('fex_checkout_email') ||
+        localStorage.getItem('fex_last_buyer_email') ||
+        storedSession?.email ||
+        '';
+
+      const buyerName = 
+        sessionStorage.getItem('fex_checkout_name') ||
+        localStorage.getItem('fex_checkout_name') ||
+        storedSession?.customerName ||
+        '';
+
+      const optimisticSession: UserSession = {
+        email: buyerEmail,
+        orderId: routeInfo.pedido || sessionStorage.getItem('fex_current_order_id') || storedSession?.orderId || `guru_${Date.now()}`,
+        customerName: buyerName,
+        products: autoProducts,
+        authenticatedAt: new Date().toISOString()
+      };
+
+      saveUserSession(optimisticSession);
+      setUserSession(optimisticSession);
+
+      setState((prev) => ({
+        ...prev,
+        accessStatus: is97 ? 'succession_unlocked' : 'diagnostic_paid',
+        lead: { 
+          ...prev.lead, 
+          email: buyerEmail || prev.lead.email,
+          nome: buyerName || prev.lead.nome
+        }
+      }));
+    }
+
     // Set initial screen if specific route requested
     if (routeInfo.screen && routeInfo.screen !== 'intro') {
       handleNavigate(routeInfo.screen, true);
@@ -291,7 +362,7 @@ export default function App() {
       nome: result.customerName || state.lead.nome
     };
 
-    const hasPlano = result.hasOrderBump && result.products.includes(PRODUCT_IDS.PLANO_SUCESSAO);
+    const hasPlano = Boolean(result.products.includes(PRODUCT_IDS.PLANO_SUCESSAO) || result.hasOrderBump);
     const newStatus: AccessStatus = hasPlano ? 'succession_unlocked' : 'diagnostic_paid';
 
     // Instantiate Plano de Sucessão if unlocked
@@ -693,6 +764,7 @@ export default function App() {
             onOpenCheckout97={openCheckout97}
             onLogout={handleLogout}
             onRefreshPurchases={handleRefreshPurchases}
+            onConfirmSuccess={handleConfirmSuccess}
             isRefreshing={isRefreshingPurchases}
           />
         )}

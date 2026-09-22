@@ -297,9 +297,23 @@ async function startServer() {
    * Endpoint to verify confirmed access via email or transaction ID
    * Called by the application frontend on load or return
    */
-  app.get('/api/access/check', (req: Request, res: Response) => {
-    const email = (req.query.email as string || '').toLowerCase().trim();
-    const txId = (req.query.transaction_id as string || '').trim();
+  app.get('/api/access/check', async (req: Request, res: Response) => {
+    const email = (
+      req.query.email as string || 
+      req.query['e-mail'] as string ||
+      req.query.customer_email as string ||
+      req.query.buyer_email as string ||
+      ''
+    ).toLowerCase().trim();
+
+    const txId = (
+      req.query.transaction_id as string || 
+      req.query.order_id as string || 
+      req.query.pedido as string || 
+      req.query.pedido_id as string || 
+      req.query.id as string || 
+      ''
+    ).trim();
 
     let record: ConfirmedPurchase | undefined;
     if (email && purchasesStore.has(email)) {
@@ -318,6 +332,68 @@ async function startServer() {
         email: record.email,
         transactionId: record.id
       });
+    }
+
+    // Fallback para n8n webhook se ainda não registrado no webhook local
+    if (email || txId) {
+      try {
+        const queryParams = new URLSearchParams();
+        if (email) queryParams.set('email', email);
+        if (txId) queryParams.set('pedido', txId);
+
+        const n8nWebhookUrl = `https://n8n.fexeducacao.com/webhook/j2gYOp1tOyw0ZhOn-low-ticket-b2b-aprovado-redirecionamento?${queryParams.toString()}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+        const response = await fetch(n8nWebhookUrl, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' },
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const text = await response.text();
+          let parsedData: any = null;
+          try {
+            parsedData = text && text.trim() ? JSON.parse(text) : null;
+          } catch {
+            parsedData = { raw: text };
+          }
+
+          if (parsedData && (parsedData.sucesso === true || parsedData.success === true || parsedData.podutos || parsedData.produtos)) {
+            const rawProducts = (parsedData.podutos || parsedData.produtos || parsedData.products || '').toString().toLowerCase();
+            const is97 = rawProducts.includes('sucessao') || rawProducts.includes('order bump') || rawProducts.includes('97');
+            const productType = is97 ? 'succession_97' : 'diagnostic_67';
+            
+            const n8nRecord: ConfirmedPurchase = {
+              id: txId || `n8n_${Date.now()}`,
+              email: email || parsedData.email || '',
+              productType,
+              productName: productType === 'succession_97' ? 'Plano de Sucessão Completo (R$ 97)' : 'Diagnóstico + Mini-Curso (R$ 67)',
+              status: 'approved',
+              customerName: parsedData.nome || parsedData.customerName || '',
+              receivedAt: new Date().toISOString(),
+              rawPayload: parsedData
+            };
+            if (n8nRecord.email) purchasesStore.set(n8nRecord.email, n8nRecord);
+            if (n8nRecord.id) purchasesStore.set(n8nRecord.id, n8nRecord);
+            persistPurchases();
+
+            return res.json({
+              hasAccess: true,
+              productType,
+              productName: n8nRecord.productName,
+              status: 'approved',
+              customerName: n8nRecord.customerName,
+              email: n8nRecord.email,
+              transactionId: n8nRecord.id
+            });
+          }
+        }
+      } catch (e) {
+        // Fallback silently
+      }
     }
 
     return res.json({ hasAccess: false });

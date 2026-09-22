@@ -68,7 +68,11 @@ export const DiagnosticResult: React.FC<DiagnosticResultProps> = ({
   const leadFormRef = useRef<HTMLDivElement>(null);
 
   // Check if diagnostic complete deliverable & mini-course is unlocked by confirmed payment
-  const isUnlocked = ['diagnostic_paid', 'succession_unlocked', 'succession_paid'].includes(accessStatus);
+  const isUnlocked = ['diagnostic_paid', 'succession_unlocked', 'succession_paid'].includes(accessStatus) ||
+    (typeof window !== 'undefined' && (
+      sessionStorage.getItem('fex_post_purchase_active') === 'true' ||
+      localStorage.getItem('fex_post_purchase_active') === 'true'
+    ));
 
   const { cargosCalculados, custoTotal, nivelGeral, mesesRampa, percentualPerda } = resultado;
 
