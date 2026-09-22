@@ -23,7 +23,7 @@ import {
   Users
 } from 'lucide-react';
 import { trackEvent } from '../services/analytics';
-import { DIAGNOSTICO_CHECKOUT_URL } from '../config/checkout';
+import { DIAGNOSTICO_CHECKOUT_URL, buildCheckoutUrl } from '../config/checkout';
 import { sendLeadToN8n } from '../services/webhook';
 
 const PORTES: { value: PorteEmpresa; label: string }[] = [
@@ -109,17 +109,13 @@ export const DiagnosticResult: React.FC<DiagnosticResultProps> = ({
       porte: perfil?.porte
     });
 
-    // Build clean checkout URL with standard buyer pre-fill parameters only
-    const checkoutParams = new URLSearchParams();
-    if (lead.nome) checkoutParams.set('name', lead.nome);
-    if (lead.email) checkoutParams.set('email', lead.email);
-    if (lead.whatsapp) {
-      const rawPhone = lead.whatsapp.replace(/\D/g, '');
-      checkoutParams.set('phone', rawPhone || lead.whatsapp);
-    }
-    if (lead.empresa) checkoutParams.set('company', lead.empresa);
-    
-    const fullCheckoutUrl = DIAGNOSTICO_CHECKOUT_URL + (checkoutParams.toString() ? `?${checkoutParams.toString()}` : '');
+    // Build checkout URL with standard buyer pre-fill parameters and return URL
+    const fullCheckoutUrl = buildCheckoutUrl({
+      name: lead.nome,
+      email: lead.email,
+      phone: lead.whatsapp,
+      company: lead.empresa
+    });
 
     // Send lead to n8n webhook (low-ticket B2B funnel)
     try {

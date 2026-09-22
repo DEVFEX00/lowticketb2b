@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { AccessStatus, DiagnosticoResultado, LeadInfo, PlanoSucessao } from '../types';
 import { FexLogo } from './FexLogo';
 import { UserSession } from '../services/purchaseApi';
@@ -20,7 +20,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { trackEvent } from '../services/analytics';
-import { DIAGNOSTICO_CHECKOUT_URL } from '../config/checkout';
+import { DIAGNOSTICO_CHECKOUT_URL, buildCheckoutUrl } from '../config/checkout';
 
 interface ClientHubViewProps {
   accessStatus: AccessStatus;
@@ -65,6 +65,20 @@ export const ClientHubView: React.FC<ClientHubViewProps> = ({
     (userSession && userSession.products?.includes(PRODUCT_IDS.PLANO_SUCESSAO))
   );
 
+  // Item 17: Se a sessão não existir ao acessar /area-do-cliente, redirecionar para /login imediatamente
+  useEffect(() => {
+    if (!userSession || !userSession.email || !userSession.products || userSession.products.length === 0) {
+      onNavigate('login');
+    }
+  }, [userSession, onNavigate]);
+
+  // Item 18: Ao acessar a área do cliente, sincronizar silenciosamente em background para identificar compras subsequentes
+  useEffect(() => {
+    if (onRefreshPurchases && userSession?.email) {
+      onRefreshPurchases();
+    }
+  }, []);
+
   const hasResult = Boolean(resultado);
   const activeEmail = userSession?.email || lead.email || '';
   const saudacaoNome = userSession?.customerName || (lead.nome ? lead.nome.split(' ')[0] : '');
@@ -74,7 +88,12 @@ export const ClientHubView: React.FC<ClientHubViewProps> = ({
     if (hasResult) {
       onNavigate('resultado');
     } else {
-      window.location.href = DIAGNOSTICO_CHECKOUT_URL;
+      window.location.href = buildCheckoutUrl({
+        email: activeEmail,
+        name: saudacaoNome,
+        phone: lead.whatsapp,
+        company: lead.empresa
+      });
     }
   };
 

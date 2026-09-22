@@ -5,14 +5,14 @@ import { PRODUCT_IDS } from '../config/products';
 import { trackEvent } from '../services/analytics';
 import { 
   CheckCircle2, 
+  Clock, 
   Loader2, 
   AlertCircle, 
   ArrowRight, 
   ShieldCheck, 
-  Clock, 
-  RefreshCw,
+  Lock, 
   Sparkles,
-  Lock
+  RefreshCw
 } from 'lucide-react';
 
 interface PosCompraViewProps {
@@ -50,14 +50,30 @@ export const PosCompraView: React.FC<PosCompraViewProps> = ({
   const isPollingRef = useRef<boolean>(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const autoRedirectRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef<boolean>(true);
 
-  // Extract from URL if not passed via props
+  // Extract from URL query params
   useEffect(() => {
     try {
       const urlParams = new URLSearchParams(window.location.search);
-      const queryEmail = urlParams.get('email') || urlParams.get('customer_email') || initialEmail;
-      const queryPedido = urlParams.get('pedido') || urlParams.get('order_id') || urlParams.get('transaction_id') || initialPedido;
+      const queryEmail = 
+        urlParams.get('email') || 
+        urlParams.get('customer_email') || 
+        urlParams.get('buyer_email') || 
+        urlParams.get('customer[email]') || 
+        urlParams.get('e') || 
+        initialEmail;
+
+      const queryPedido = 
+        urlParams.get('pedido') || 
+        urlParams.get('order_id') || 
+        urlParams.get('id') || 
+        urlParams.get('transaction_id') || 
+        urlParams.get('trans_id') || 
+        urlParams.get('guru_order_id') || 
+        urlParams.get('order') || 
+        initialPedido;
 
       if (queryEmail) setEmail(queryEmail.trim());
       if (queryPedido) setPedido(queryPedido.trim());
@@ -70,7 +86,22 @@ export const PosCompraView: React.FC<PosCompraViewProps> = ({
     }
   }, [initialEmail, initialPedido]);
 
-  // Main purchase check function
+  const stopTimers = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    if (autoRedirectRef.current) {
+      clearTimeout(autoRedirectRef.current);
+      autoRedirectRef.current = null;
+    }
+  };
+
+  // Main purchase check function (Queries API / n8n in background - Item 4 & 5)
   const executeCheck = async (targetEmail: string, targetPedido: string) => {
     if (!targetEmail && !targetPedido) {
       setStatusState('missing_params');
@@ -89,7 +120,7 @@ export const PosCompraView: React.FC<PosCompraViewProps> = ({
       if (purchaseResult.success && purchaseResult.products.length > 0) {
         setResult(purchaseResult);
 
-        // Save session locally
+        // Save session locally with confirmed products (Item 8)
         saveUserSession({
           email: purchaseResult.email || targetEmail,
           orderId: purchaseResult.orderId || targetPedido,
@@ -106,7 +137,7 @@ export const PosCompraView: React.FC<PosCompraViewProps> = ({
           hasOrderBump: purchaseResult.hasOrderBump
         });
 
-        // Notify parent state
+        // Notify parent state of verified purchase
         onConfirmSuccess(purchaseResult);
 
         // Check whether both main and order bump were confirmed
@@ -116,8 +147,16 @@ export const PosCompraView: React.FC<PosCompraViewProps> = ({
           setStatusState('confirmed_main');
         }
 
-        // Stop polling timers
+        // STOP polling immediately upon confirmation (Item 6)
         stopTimers();
+
+        // AUTOMATIC REDIRECT to /area-do-cliente after brief 1.8s confirmation (Items 1, 3, 8, 10)
+        autoRedirectRef.current = setTimeout(() => {
+          if (isMountedRef.current) {
+            onNavigateToHub();
+          }
+        }, 1800);
+
         return;
       }
 
@@ -135,18 +174,7 @@ export const PosCompraView: React.FC<PosCompraViewProps> = ({
     }
   };
 
-  const stopTimers = () => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-      countdownIntervalRef.current = null;
-    }
-  };
-
-  // Setup 10-second polling lifecycle
+  // Setup 10-second polling lifecycle (Item 6)
   useEffect(() => {
     isMountedRef.current = true;
 
@@ -180,6 +208,11 @@ export const PosCompraView: React.FC<PosCompraViewProps> = ({
     setCountdown(10);
     setStatusState('checking');
     executeCheck(email, pedido);
+  };
+
+  const handleGoToHubNow = () => {
+    stopTimers();
+    onNavigateToHub();
   };
 
   return (
@@ -267,7 +300,7 @@ export const PosCompraView: React.FC<PosCompraViewProps> = ({
           </div>
         )}
 
-        {/* STATE 2 & 3: CHECKING & PENDING (POLLING ACTIVE) */}
+        {/* STATE 2 & 3: CHECKING & PENDING (POLLING ACTIVE - Item 4: SEM EXIBIR N8N OU JSON) */}
         {(statusState === 'checking' || statusState === 'pending') && (
           <div className="space-y-6">
             <div className="relative w-20 h-20 mx-auto flex items-center justify-center">
@@ -282,10 +315,11 @@ export const PosCompraView: React.FC<PosCompraViewProps> = ({
                 Estamos confirmando sua compra...
               </h2>
               <p className="text-xs sm:text-sm text-neutral-300 max-w-md mx-auto leading-relaxed">
-                Isso pode levar alguns segundos.
+                Isso pode levar alguns segundos. Identificando seus produtos adquiridos em segundo plano.
               </p>
-              <p className="text-xs font-semibold text-[#00D84F] mt-1">
-                Não feche esta página.
+              <p className="text-xs font-semibold text-[#00D84F] mt-2 flex items-center justify-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#00D84F] animate-pulse"></span>
+                <span>Não feche esta página. Redirecionamento automático em andamento.</span>
               </p>
             </div>
 
@@ -326,7 +360,7 @@ export const PosCompraView: React.FC<PosCompraViewProps> = ({
 
         {/* STATE 4: CONFIRMED - MAIN PRODUCT (DIAGNÓSTICO + MINI-CURSO) */}
         {statusState === 'confirmed_main' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-fadeIn">
             <div className="w-16 h-16 rounded-full bg-[#00D84F]/20 border border-[#00D84F] flex items-center justify-center mx-auto text-[#00D84F]">
               <CheckCircle2 className="w-10 h-10" />
             </div>
@@ -340,6 +374,9 @@ export const PosCompraView: React.FC<PosCompraViewProps> = ({
               </h2>
               <p className="text-sm sm:text-base text-neutral-200 max-w-md mx-auto font-medium">
                 Seu acesso foi liberado com sucesso.
+              </p>
+              <p className="text-xs font-semibold text-[#00D84F] mt-2 animate-pulse">
+                Redirecionando para a Área de Membros...
               </p>
             </div>
 
@@ -357,15 +394,15 @@ export const PosCompraView: React.FC<PosCompraViewProps> = ({
               </div>
               <div className="flex items-center gap-2 text-xs text-neutral-400 pt-1 border-t border-white/10">
                 <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span>Plano de Sucessão: Aguardando ou disponível no Order Bump</span>
+                <span>Plano de Sucessão: Disponibilizado via Order Bump</span>
               </div>
             </div>
 
             <button
-              onClick={onNavigateToHub}
+              onClick={handleGoToHubNow}
               className="w-full max-w-md mx-auto py-4 px-8 rounded-full bg-[#00D84F] hover:bg-[#25eb69] text-black font-black text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xl shadow-[#00D84F]/25 active:scale-98"
             >
-              <span>Entrar na Área de Membros</span>
+              <span>Entrar na Área de Membros agora</span>
               <ArrowRight className="w-4 h-4 text-black" />
             </button>
           </div>
@@ -373,7 +410,7 @@ export const PosCompraView: React.FC<PosCompraViewProps> = ({
 
         {/* STATE 5: CONFIRMED - ALL PRODUCTS (MAIN + ORDER BUMP PLANO DE SUCESSÃO) */}
         {statusState === 'confirmed_all' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-fadeIn">
             <div className="w-16 h-16 rounded-full bg-[#00D84F]/20 border border-[#00D84F] flex items-center justify-center mx-auto text-[#00D84F]">
               <Sparkles className="w-10 h-10" />
             </div>
@@ -387,6 +424,9 @@ export const PosCompraView: React.FC<PosCompraViewProps> = ({
               </h2>
               <p className="text-sm sm:text-base text-neutral-200 max-w-md mx-auto font-medium">
                 Todos os seus produtos foram liberados com sucesso.
+              </p>
+              <p className="text-xs font-semibold text-[#00D84F] mt-2 animate-pulse">
+                Redirecionando para a Área de Membros...
               </p>
             </div>
 
@@ -404,15 +444,15 @@ export const PosCompraView: React.FC<PosCompraViewProps> = ({
               </div>
               <div className="flex items-center gap-2 text-xs font-bold text-[#00D84F]">
                 <CheckCircle2 className="w-4 h-4 text-[#00D84F] shrink-0" />
-                <span>Plano de Sucessão de 90 Dias (Order Bump Aprovado)</span>
+                <span>Plano de Sucessão de 90 Dias (Order Bump Confirmado)</span>
               </div>
             </div>
 
             <button
-              onClick={onNavigateToHub}
+              onClick={handleGoToHubNow}
               className="w-full max-w-md mx-auto py-4 px-8 rounded-full bg-[#00D84F] hover:bg-[#25eb69] text-black font-black text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xl shadow-[#00D84F]/25 active:scale-98"
             >
-              <span>Entrar na Área de Membros</span>
+              <span>Entrar na Área de Membros agora</span>
               <ArrowRight className="w-4 h-4 text-black" />
             </button>
           </div>
