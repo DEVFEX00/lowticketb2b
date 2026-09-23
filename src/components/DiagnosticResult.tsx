@@ -418,7 +418,7 @@ export const DiagnosticResult: React.FC<DiagnosticResultProps> = ({
 
               <div className="max-w-2xl mx-auto text-center">
                 <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight leading-tight">
-                  Adquira seu Diagnóstico Completo + Mini-Curso
+                  Adquira seu Diagnóstico Completo + Curso
                 </h2>
 
                 <p className="text-sm sm:text-base text-neutral-300 mt-3 leading-relaxed">
@@ -438,7 +438,7 @@ export const DiagnosticResult: React.FC<DiagnosticResultProps> = ({
                   <div className="flex items-start gap-2.5 text-white">
                     <CheckCircle2 className="w-4 h-4 text-[#00D84F] shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold block text-white">Mini-Curso em Vídeo</span>
+                      <span className="font-bold block text-white">Curso em Vídeo</span>
                       <span className="text-[11px] text-neutral-400">4 vídeo-aulas da FEX com o Método Atitude Emocional®</span>
                     </div>
                   </div>
@@ -619,7 +619,7 @@ export const DiagnosticResult: React.FC<DiagnosticResultProps> = ({
                       </>
                     ) : (
                       <>
-                        <span>ADQUIRIR DIAGNÓSTICO COMPLETO + MINI-CURSO</span>
+                        <span>ADQUIRIR DIAGNÓSTICO COMPLETO + CURSO</span>
                         <ArrowRight className="w-5 h-5 text-black shrink-0" />
                       </>
                     )}
@@ -643,7 +643,7 @@ export const DiagnosticResult: React.FC<DiagnosticResultProps> = ({
                 </div>
                 <div>
                   <h4 className="text-base font-black text-emerald-950 uppercase tracking-wide">
-                    Diagnóstico Completo & Mini-Curso Liberados
+                    Diagnóstico Completo & Curso Liberados
                   </h4>
                   <p className="text-xs sm:text-sm text-emerald-800 mt-0.5">
                     Seu acesso foi confirmado. Você pode exportar o relatório executivo oficial e avançar para o Raio-X do Conhecimento e as aulas.

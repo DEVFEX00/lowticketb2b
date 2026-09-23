@@ -132,7 +132,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </div>
           <div className="flex items-start gap-2">
             <CheckCircle2 className="w-4 h-4 text-[#00D84F] shrink-0 mt-0.5" />
-            <span className="text-[#00D84F] font-semibold">Inclui acesso integral ao Mini-Curso FEX (vídeo aulas)</span>
+            <span className="text-[#00D84F] font-semibold">Inclui acesso integral ao Curso FEX (vídeo aulas)</span>
           </div>
         </div>
 

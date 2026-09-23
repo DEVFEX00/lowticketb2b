@@ -82,7 +82,7 @@ export const MiniCursoView: React.FC<MiniCursoViewProps> = ({
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-neutral-900">
-              Mini-Curso FEX Educação
+              Curso FEX Educação
             </h1>
             <p className="text-sm sm:text-base text-neutral-600 mt-1 leading-relaxed">
               Conteúdos exclusivos para transformar conhecimento em prática.
@@ -130,7 +130,7 @@ export const MiniCursoView: React.FC<MiniCursoViewProps> = ({
                 {aulaAtiva.titulo}
               </h3>
               <p className="text-xs text-neutral-400 max-w-sm mb-4 leading-relaxed">
-                Este mini-curso está incluso na aquisição do Diagnóstico de Custo de Pessoa-Chave por R$ 67,00.
+                Este curso está incluso na aquisição do Diagnóstico de Custo de Pessoa-Chave por R$ 67,00.
               </p>
               {onUnlock && (
                 <button
@@ -255,7 +255,7 @@ export const MiniCursoView: React.FC<MiniCursoViewProps> = ({
                 Metodologia Atitude Emocional® • Faculdade FEX Educação
               </h4>
               <p className="text-xs text-white/70 mt-1 leading-relaxed">
-                As 4 aulas deste mini-curso foram estruturadas para transformar o conhecimento tácito em metodologia corporativa viva, superando a resistência emocional e garantindo a continuidade do seu negócio.
+                As 4 aulas deste curso foram estruturadas para transformar o conhecimento tácito em metodologia corporativa viva, superando a resistência emocional e garantindo a continuidade do seu negócio.
               </p>
             </div>
           </div>
@@ -267,7 +267,7 @@ export const MiniCursoView: React.FC<MiniCursoViewProps> = ({
             <div className="flex items-center justify-between pb-4 border-b border-neutral-100 mb-4">
               <div>
                 <h3 className="text-sm font-black uppercase tracking-wider text-neutral-900">
-                  Grade do Mini-Curso
+                  Grade do Curso
                 </h3>
                 <p className="text-xs text-neutral-500 mt-0.5">
                   4 aulas práticas em vídeo

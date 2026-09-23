@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FexLogo } from './FexLogo';
-import { checkPurchaseStatus, saveUserSession, NormalizedPurchaseResult } from '../services/purchaseApi';
+import { loginWithEmail, saveUserSession, NormalizedPurchaseResult } from '../services/purchaseApi';
 import { trackEvent } from '../services/analytics';
 import { 
   ShieldCheck, 
@@ -40,7 +40,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
 
     try {
       trackEvent('login_attempt', { email: cleanEmail });
-      const result = await checkPurchaseStatus(cleanEmail);
+      const result = await loginWithEmail(cleanEmail);
 
       // Verify that this email has an approved purchase confirmed by the API
       if (result.success && result.products.length > 0) {

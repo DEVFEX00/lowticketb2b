@@ -11,9 +11,11 @@
     { "source": "/confirmacao", "destination": "/index.html" },
     { "source": "/area-do-cliente", "destination": "/index.html" },
     { "source": "/login", "destination": "/index.html" },
+    { "source": "/curso", "destination": "/index.html" },
     { "source": "/mini-curso", "destination": "/index.html" },
     { "source": "/plano-de-sucessao", "destination": "/index.html" },
     { "source": "/diagnostico", "destination": "/index.html" },
+    { "source": "/api/login", "destination": "/api/login" },
     { "source": "/api/check-purchase", "destination": "/api/check-purchase" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }

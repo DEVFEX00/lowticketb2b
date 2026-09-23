@@ -31,10 +31,10 @@ export const PRODUCTS: Record<ProductId, ProductDefinition> = {
   },
   MINI_CURSO: {
     id: PRODUCT_IDS.MINI_CURSO,
-    name: 'Mini-Curso: Gestão de Pessoas-Chave',
-    shortName: 'Mini-Curso',
+    name: 'Curso: Gestão de Pessoas-Chave',
+    shortName: 'Curso',
     description: '4 vídeo-aulas práticas ministradas pelos fundadores da Faculdade FEX Educação.',
-    route: '/mini-curso'
+    route: '/curso'
   },
   PLANO_SUCESSAO: {
     id: PRODUCT_IDS.PLANO_SUCESSAO,

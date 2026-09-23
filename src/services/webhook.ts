@@ -116,7 +116,7 @@ export async function sendLeadToN8n(options: SendLeadWebhookOptions): Promise<{ 
 
     // Commercial & Diagnostic Data
     produto: 'diagnostico_67',
-    nomeProduto: 'Diagnóstico de Custo e Risco de Pessoa-Chave + Mini-Curso',
+    nomeProduto: 'Diagnóstico de Custo e Risco de Pessoa-Chave + Curso',
     valor: 67.0,
     moeda: 'BRL',
     checkoutUrl: checkoutUrlCompleto,

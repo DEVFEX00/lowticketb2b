@@ -107,7 +107,7 @@ export const UpsellSuccessionOffer: React.FC<UpsellSuccessionOfferProps> = ({
             </li>
             <li className="flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-[#00D84F] shrink-0" />
-              <span>Acesso garantido ao Mini-Curso em vídeo</span>
+              <span>Acesso garantido ao Curso em vídeo</span>
             </li>
           </ul>
         </div>

@@ -3,8 +3,8 @@
  * CONFIGURAÇÃO DE CHECKOUT EXTERNO - DIGITAL MANAGER GURU / FEX EDUCAÇÃO
  * ==============================================================================
  * 
- * Link do produto principal (R$ 67): Diagnóstico Completo + Mini-Curso
- * Link do produto upsell/order bump (R$ 97): Plano de Sucessão Completo + Mini-Curso
+ * Link do produto principal (R$ 67): Diagnóstico Completo + Curso
+ * Link do produto upsell/order bump (R$ 97): Plano de Sucessão Completo + Curso
  * 
  * Fluxo de retorno obrigatório:
  * Checkout Guru -> Página de Obrigado -> Redirecionamento Automático -> /pos-compra -> /area-do-cliente

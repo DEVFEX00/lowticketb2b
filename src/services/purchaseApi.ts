@@ -104,9 +104,10 @@ export function normalizePurchaseResponse(
     normalizedProductsText.includes('plano de sucessao') ||
     normalizedProductsText.includes('97');
 
-  // Check presence of Main Product (Diagnóstico + Mini-Curso)
+  // Check presence of Main Product (Diagnóstico + Curso)
   const hasMainProduct = 
     normalizedProductsText.includes('diagnostico') ||
+    normalizedProductsText.includes('curso') ||
     normalizedProductsText.includes('mini curso') ||
     normalizedProductsText.includes('mini-curso') ||
     normalizedProductsText.includes('pessoa corporativo') ||
@@ -226,6 +227,115 @@ export async function checkPurchaseStatus(
     hasMainProduct: false,
     hasOrderBump: false,
     message: 'Ainda não identificamos a confirmação do pagamento. Nova consulta em instantes.'
+  };
+}
+
+/**
+ * URL oficial do webhook de login no n8n configurada pelo usuário:
+ * https://n8n.fexeducacao.com/webhook/j2gYOp1tOyw0ZhOn-login-with-email
+ */
+export const N8N_LOGIN_WEBHOOK_URL = 'https://n8n.fexeducacao.com/webhook/j2gYOp1tOyw0ZhOn-login-with-email';
+
+/**
+ * Autentica o usuário pelo e-mail consultando a URL de login do n8n:
+ * https://n8n.fexeducacao.com/webhook/j2gYOp1tOyw0ZhOn-login-with-email
+ */
+export async function loginWithEmail(email: string): Promise<NormalizedPurchaseResult> {
+  const cleanEmail = (email || '').toLowerCase().trim();
+
+  if (!cleanEmail) {
+    return {
+      success: false,
+      email: '',
+      products: [],
+      hasMainProduct: false,
+      hasOrderBump: false,
+      message: 'E-mail não informado.'
+    };
+  }
+
+  const params = new URLSearchParams();
+  params.set('email', cleanEmail);
+
+  // 1. Tentar via rota interna da aplicação (/api/login)
+  try {
+    const internalUrl = `/api/login?${params.toString()}`;
+    const response = await fetch(internalUrl, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success && data.data) {
+        const normalized = normalizePurchaseResponse(data.data, cleanEmail);
+        if (normalized.products.length > 0 || normalized.success) {
+          return normalized;
+        }
+      }
+    }
+  } catch (internalErr) {
+    console.warn('[Login API] Falha na rota interna /api/login, tentando chamada direta ao n8n:', internalErr);
+  }
+
+  // 2. Chamada direta ao webhook oficial de login do n8n
+  try {
+    const directLoginUrl = `${N8N_LOGIN_WEBHOOK_URL}?${params.toString()}`;
+    const directResponse = await fetch(directLoginUrl, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+
+    if (directResponse.ok) {
+      const text = await directResponse.text();
+      if (text && text.trim()) {
+        try {
+          const directJson = JSON.parse(text);
+          const normalized = normalizePurchaseResponse(directJson, cleanEmail);
+          return normalized;
+        } catch {
+          return normalizePurchaseResponse({ raw: text }, cleanEmail);
+        }
+      }
+    }
+  } catch (directErr) {
+    console.error('[Login API] Erro na requisição direta ao webhook n8n de login:', directErr);
+  }
+
+  // 3. Fallback: verificar se existe registro confirmado no checkout recente / local
+  const lastBuyerEmail = (localStorage.getItem('fex_last_buyer_email') || '').toLowerCase().trim();
+  const currentEmail = (sessionStorage.getItem('fex_current_email') || '').toLowerCase().trim();
+  const checkoutEmail = (sessionStorage.getItem('fex_checkout_email') || '').toLowerCase().trim();
+  const hasLocalPurchase = Boolean(
+    sessionStorage.getItem('fex_post_purchase_active') === 'true' ||
+    localStorage.getItem('fex_post_purchase_active') === 'true'
+  );
+
+  if (hasLocalPurchase && (cleanEmail === lastBuyerEmail || cleanEmail === currentEmail || cleanEmail === checkoutEmail)) {
+    const is97 = Boolean(
+      sessionStorage.getItem('fex_checkout_type') === 'succession_97' ||
+      localStorage.getItem('fex_checkout_type') === 'succession_97'
+    );
+    return {
+      success: true,
+      email: cleanEmail,
+      orderId: sessionStorage.getItem('fex_current_order_id') || `guru_${Date.now()}`,
+      customerName: sessionStorage.getItem('fex_checkout_name') || localStorage.getItem('fex_checkout_name') || '',
+      products: is97
+        ? [PRODUCT_IDS.DIAGNOSTICO_COMPLETO, PRODUCT_IDS.MINI_CURSO, PRODUCT_IDS.PLANO_SUCESSAO]
+        : [PRODUCT_IDS.DIAGNOSTICO_COMPLETO, PRODUCT_IDS.MINI_CURSO],
+      hasMainProduct: true,
+      hasOrderBump: is97
+    };
+  }
+
+  return {
+    success: false,
+    email: cleanEmail,
+    products: [],
+    hasMainProduct: false,
+    hasOrderBump: false,
+    message: 'Nenhuma compra confirmada encontrada para este e-mail.'
   };
 }
 

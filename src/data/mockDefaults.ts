@@ -98,7 +98,7 @@ export const AULAS_FEX_MINICURSO: VideoAula[] = [
 export const MODULOS_MINI_CURSO: ModuloCurso[] = [
   {
     id: 'mod-1',
-    titulo: 'Mini-Curso: Gestão de Conhecimento e Sucessão de Pessoas-Chave',
+    titulo: 'Curso: Gestão de Conhecimento e Sucessão de Pessoas-Chave',
     aulas: AULAS_FEX_MINICURSO
   }
 ];

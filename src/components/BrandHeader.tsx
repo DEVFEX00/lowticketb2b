@@ -88,7 +88,7 @@ export const BrandHeader: React.FC<BrandHeaderProps> = ({
                   : 'text-white/70 hover:text-white hover:bg-white/5'
               }`}
             >
-              Mini-Curso
+              Curso
             </button>
 
             <button

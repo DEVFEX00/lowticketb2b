@@ -423,7 +423,7 @@ export const ClientHubView: React.FC<ClientHubViewProps> = ({
                   Pronto para começar? Escolha por onde avançar:
                 </h3>
                 <p className="text-xs sm:text-sm text-neutral-300 mt-1 max-w-xl leading-relaxed">
-                  Acesse o relatório executivo completo com Raio-X do Conhecimento Tácito ou inicie as aulas práticas do Mini-Curso.
+                  Acesse o relatório executivo completo com Raio-X do Conhecimento Tácito ou inicie as aulas práticas do Curso.
                 </p>
               </div>
             </div>
@@ -452,7 +452,7 @@ export const ClientHubView: React.FC<ClientHubViewProps> = ({
                 className="flex-1 sm:flex-initial px-6 py-3.5 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 border border-white/20 cursor-pointer active:scale-98"
               >
                 <PlayCircle className="w-4 h-4 text-[#00D84F]" />
-                <span>Ver Mini-Curso</span>
+                <span>Ver Curso</span>
               </button>
             </div>
           </div>
@@ -529,7 +529,7 @@ export const ClientHubView: React.FC<ClientHubViewProps> = ({
           </div>
         </div>
 
-        {/* 2. CARD DO MINI-CURSO */}
+        {/* 2. CARD DO CURSO */}
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-neutral-200/90 shadow-sm transition-all hover:shadow-md">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
             <div className="flex items-start gap-4 sm:gap-5">
@@ -558,7 +558,7 @@ export const ClientHubView: React.FC<ClientHubViewProps> = ({
                 </div>
 
                 <h2 className="text-xl sm:text-2xl font-black text-neutral-900 tracking-tight">
-                  Mini-Curso: Gestão de Pessoas-Chave
+                  Curso: Gestão de Pessoas-Chave
                 </h2>
 
                 <p className="text-xs sm:text-sm text-neutral-600 mt-1.5 max-w-2xl leading-relaxed">

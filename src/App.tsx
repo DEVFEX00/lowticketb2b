@@ -56,7 +56,7 @@ export default function App() {
     'raiox': '/raio-x',
     'upsell': '/upsell',
     'plano': '/plano-de-sucessao',
-    'curso': '/mini-curso',
+    'curso': '/curso',
     'hub': '/area-do-cliente',
     'login': '/login',
     'pos-compra': '/pos-compra'
@@ -140,7 +140,7 @@ export default function App() {
       if (pathname.includes('/area-do-cliente') || pathname.includes('/hub')) {
         return { screen: 'hub' };
       }
-      if (pathname.includes('/mini-curso')) return { screen: 'curso' };
+      if (pathname.includes('/curso') || pathname.includes('/mini-curso')) return { screen: 'curso' };
       if (pathname.includes('/plano-de-sucessao')) return { screen: 'plano' };
       if (pathname.includes('/diagnostico')) return { screen: 'resultado' };
       if (pathname.includes('/cargos')) return { screen: 'cargos' };
@@ -196,7 +196,7 @@ export default function App() {
         return;
       }
       if (screen === 'curso') {
-        setPaymentAlert('🔒 O Mini-Curso é exclusivo para compradores do Diagnóstico (R$ 67). Adquira para desbloquear.');
+        setPaymentAlert('🔒 O Curso é exclusivo para compradores do Diagnóstico (R$ 67). Adquira para desbloquear.');
       } else if (screen === 'plano') {
         setPaymentAlert('🔒 O Plano de Sucessão de 90 Dias é disponibilizado via Order Bump no checkout oficial.');
       }
@@ -393,9 +393,9 @@ export default function App() {
     }));
 
     if (hasPlano) {
-      setPaymentAlert('🎉 Compra confirmada com sucesso! Diagnóstico Completo, Mini-Curso e Plano de Sucessão liberados.');
+      setPaymentAlert('🎉 Compra confirmada com sucesso! Diagnóstico Completo, Curso e Plano de Sucessão liberados.');
     } else {
-      setPaymentAlert('🎉 Compra confirmada com sucesso! Diagnóstico Completo e Mini-Curso liberados.');
+      setPaymentAlert('🎉 Compra confirmada com sucesso! Diagnóstico Completo e Curso liberados.');
     }
   };
 
@@ -740,7 +740,7 @@ export default function App() {
           )
         )}
 
-        {/* 4. MINI-CURSO: GESTÃO DE PESSOAS-CHAVE (ITEM 23) */}
+        {/* 4. CURSO: GESTÃO DE PESSOAS-CHAVE */}
         {state.currentScreen === 'curso' && (
           <MiniCursoView
             cursoProgresso={state.cursoProgresso}

@@ -77,7 +77,7 @@ export default async function handler(req: IncomingMessage & { query?: Record<st
       res.end(JSON.stringify({
         hasAccess: true,
         productType,
-        productName: productType === 'succession_97' ? 'Plano de Sucessão Completo (R$ 97)' : 'Diagnóstico + Mini-Curso (R$ 67)',
+        productName: productType === 'succession_97' ? 'Plano de Sucessão Completo (R$ 97)' : 'Diagnóstico + Curso (R$ 67)',
         status: 'approved',
         customerName: parsedData.nome || parsedData.customerName || '',
         email: email || parsedData.email || '',

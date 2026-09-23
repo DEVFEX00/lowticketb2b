@@ -134,8 +134,8 @@ async function startServer() {
           data: {
             sucesso: true,
             podutos: localRecord.productType === 'succession_97' 
-              ? 'Diagnóstico de Custo Pessoa Corporativo + Mini Curso,ORDER BUMP'
-              : 'Diagnóstico de Custo Pessoa Corporativo + Mini Curso'
+              ? 'Diagnóstico de Custo Pessoa Corporativo + Curso,ORDER BUMP'
+              : 'Diagnóstico de Custo Pessoa Corporativo + Curso'
           }
         });
       }
@@ -155,6 +155,95 @@ async function startServer() {
         success: false,
         error: true,
         message: 'Falha de comunicação temporária com a API de confirmação.',
+        details: err?.message
+      });
+    }
+  });
+
+  /**
+   * Official Login Webhook Endpoint (n8n)
+   * https://n8n.fexeducacao.com/webhook/j2gYOp1tOyw0ZhOn-login-with-email
+   */
+  app.get('/api/login', async (req: Request, res: Response) => {
+    const email = (req.query.email as string || '').toLowerCase().trim();
+
+    if (!email) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'E-mail é obrigatório para autenticação de login.' 
+      });
+    }
+
+    try {
+      const queryParams = new URLSearchParams();
+      queryParams.set('email', email);
+
+      const n8nLoginWebhookUrl = `https://n8n.fexeducacao.com/webhook/j2gYOp1tOyw0ZhOn-login-with-email?${queryParams.toString()}`;
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+      const response = await fetch(n8nLoginWebhookUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      const text = await response.text();
+      let parsedData: any = null;
+      try {
+        parsedData = text && text.trim() ? JSON.parse(text) : null;
+      } catch {
+        parsedData = { raw: text };
+      }
+
+      // If n8n returned a confirmed payload
+      if (parsedData && (parsedData.sucesso === true || parsedData.success === true || parsedData.podutos || parsedData.produtos)) {
+        return res.json({
+          success: true,
+          email,
+          data: parsedData
+        });
+      }
+
+      // Check local cache if present
+      if (purchasesStore.has(email)) {
+        const localRecord = purchasesStore.get(email);
+        return res.json({
+          success: true,
+          email: localRecord?.email || email,
+          data: {
+            sucesso: true,
+            podutos: localRecord?.productType === 'succession_97'
+              ? 'Diagnóstico de Custo Pessoa Corporativo + Curso,ORDER BUMP'
+              : 'Diagnóstico de Custo Pessoa Corporativo + Curso'
+          }
+        });
+      }
+
+      if (response.ok && parsedData) {
+        return res.json({
+          success: true,
+          email,
+          data: parsedData
+        });
+      }
+
+      return res.json({
+        success: false,
+        email,
+        message: 'Nenhuma compra confirmada encontrada para este e-mail no login.'
+      });
+    } catch (err: any) {
+      console.error('[API login] Erro ao consultar login n8n:', err?.message);
+      return res.status(500).json({
+        success: false,
+        error: true,
+        message: 'Falha de comunicação temporária com a API de login.',
         details: err?.message
       });
     }
@@ -250,7 +339,7 @@ async function startServer() {
       );
 
       // Determine product type:
-      // R$ 97 (Plano de Sucessão) vs R$ 67 (Diagnóstico + Mini-Curso)
+      // R$ 97 (Plano de Sucessão) vs R$ 67 (Diagnóstico + Curso)
       let productType: 'diagnostic_67' | 'succession_97' = 'diagnostic_67';
       if (
         productInfo.includes('sucessao') ||
@@ -265,7 +354,7 @@ async function startServer() {
         id: txId,
         email: email || `unknown_${txId}`,
         productType,
-        productName: productType === 'succession_97' ? 'Plano de Sucessão Completo (R$ 97)' : 'Diagnóstico + Mini-Curso (R$ 67)',
+        productName: productType === 'succession_97' ? 'Plano de Sucessão Completo (R$ 97)' : 'Diagnóstico + Curso (R$ 67)',
         status: rawStatus || 'approved',
         amount: rawAmount,
         customerName,
@@ -370,7 +459,7 @@ async function startServer() {
               id: txId || `n8n_${Date.now()}`,
               email: email || parsedData.email || '',
               productType,
-              productName: productType === 'succession_97' ? 'Plano de Sucessão Completo (R$ 97)' : 'Diagnóstico + Mini-Curso (R$ 67)',
+              productName: productType === 'succession_97' ? 'Plano de Sucessão Completo (R$ 97)' : 'Diagnóstico + Curso (R$ 67)',
               status: 'approved',
               customerName: parsedData.nome || parsedData.customerName || '',
               receivedAt: new Date().toISOString(),

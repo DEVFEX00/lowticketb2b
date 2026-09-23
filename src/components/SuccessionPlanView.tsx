@@ -243,7 +243,7 @@ export const SuccessionPlanView: React.FC<SuccessionPlanViewProps> = ({
             Benefício Incluso nos Dois Produtos
           </span>
           <h4 className="text-lg sm:text-xl font-black text-white">
-            Acessar o Mini-Curso em Vídeo (YouTube)
+            Acessar o Curso em Vídeo (YouTube)
           </h4>
           <p className="text-xs text-white/70 mt-1 max-w-lg leading-relaxed">
             Acesse as 4 aulas exclusivas sobre como desarmar o medo da equipe, conduzir entrevistas de externalização e registrar saberes tácitos na prática.
@@ -258,7 +258,7 @@ export const SuccessionPlanView: React.FC<SuccessionPlanViewProps> = ({
           className="w-full sm:w-auto py-3.5 px-6 rounded-full bg-[#00D84F] hover:bg-[#25eb69] text-black font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shrink-0 transition-all cursor-pointer shadow-lg shadow-[#00D84F]/20"
         >
           <BookOpen className="w-4 h-4" />
-          <span>Acessar Mini-Curso Agora</span>
+          <span>Acessar Curso Agora</span>
         </button>
       </div>
     </div>
